@@ -1,5 +1,16 @@
 import AppKit
 
+private final class LemmingsTouchSurface: NSButton {
+    var pointHandler: ((CGPoint) -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func draw(_ dirtyRect: NSRect) {}
+
+    override func mouseDown(with event: NSEvent) {
+        pointHandler?(convert(event.locationInWindow, from: nil))
+    }
+}
+
 final class LemmingsView: NSView {
     enum Skill: Int, CaseIterable {
         case climber, floater, bomber, blocker, builder, basher, miner, digger
@@ -47,8 +58,6 @@ final class LemmingsView: NSView {
 
     private let gameMode: GameMode
 
-    // Newly drawn 8-frame homage based on the tiny side-on silhouette of
-    // the original 1991 walkers. No original game assets are embedded.
     private let walkerFrames: [[String]] = [
         ["........","..GGGG..",".GGSSS..","..SS....","..BBS...",".SBBB...","..BBB...","..BB....",".SS..S..","..S..SS."],
         ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...",".SBBB.S.","..BBB...","..BB....",".S...SS.","SS......"],
@@ -77,7 +86,6 @@ final class LemmingsView: NSView {
     private var paused = false
     private var releaseRate = 50
 
-    // The original Builder lays twelve bricks, then stops/shrugs.
     private let builderBrickCount = 12
     private let builderBrickDuration: TimeInterval = 0.18
     private var bridgeSteps = 0
@@ -137,8 +145,18 @@ final class LemmingsView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         if gameMode == .demo { releaseRate = 45 }
-        let tap = NSClickGestureRecognizer(target: self, action: #selector(tapped(_:)))
-        addGestureRecognizer(tap)
+
+        // Custom NSView mouse/gesture events are unreliable inside the private
+        // system-modal Touch Bar host. A borderless NSButton receives actual
+        // Touch Bar presses reliably while drawing nothing over the game.
+        let touchSurface = LemmingsTouchSurface(frame: bounds)
+        touchSurface.isBordered = false
+        touchSurface.title = ""
+        touchSurface.focusRingType = .none
+        touchSurface.autoresizingMask = [.width, .height]
+        touchSurface.pointHandler = { [weak self] point in self?.handleTouch(at: point) }
+        addSubview(touchSurface)
+
         startAnimating()
     }
 
@@ -173,8 +191,6 @@ final class LemmingsView: NSView {
     }
 
     private func intervalAfterSpawn() -> TimeInterval {
-        // The opening trio should emerge with the same close spacing as the
-        // later crowd instead of looking like three isolated test subjects.
         if gameMode == .demo && spawnedCount <= 3 { return 0.72 }
         return spawnInterval
     }
@@ -193,7 +209,9 @@ final class LemmingsView: NSView {
         guard !paused else { return }
         elapsed += dt
 
-        if spawnedCount < lemmingCount && elapsed >= nextSpawnTime {
+        if spawnedCount < lemmingCount,
+           !(gameMode == .demo && demoNuked),
+           elapsed >= nextSpawnTime {
             walkers.append(Walker(x: entranceDropX, y: 6))
             spawnedCount += 1
             nextSpawnTime = elapsed + intervalAfterSpawn()
@@ -253,8 +271,6 @@ final class LemmingsView: NSView {
                 return
             }
 
-            // A sharp rise is a wall. The first demo lemming is deliberately
-            // allowed to discover it and turn around before the next one acts.
             if nextSurface < currentSurface - 6 {
                 if walkers[index].isClimber {
                     walkers[index].x = nextX
@@ -280,8 +296,6 @@ final class LemmingsView: NSView {
 
             walkers[index].y = nextSurface - spriteHeight
 
-            // Stay in front of the left exit upright until the body actually
-            // reaches the hole. Only then switch to the clipped entering state.
             if walkers[index].direction > 0,
                walkers[index].x + spriteWidth * 0.56 >= exitDoorRect.minX + 1 {
                 walkers[index].state = .entering
@@ -393,8 +407,6 @@ final class LemmingsView: NSView {
     }
 
     private func surfaceY(at x: CGFloat) -> CGFloat {
-        // Builder staircase across the gap. Each brick rises slightly; once
-        // the staircase ends the lemming steps off and falls back to ground.
         if x >= gapStart && x <= gapEnd {
             let step = max(0, min(builderBrickCount - 1, Int((x - gapStart) / max(0.1, gapStepWidth))))
             if step < bridgeSteps {
@@ -403,7 +415,6 @@ final class LemmingsView: NSView {
             return bounds.height + 30
         }
 
-        // Optional staircase over the wall.
         if wallRampSteps > 0 && x >= wallRampStart && x <= wallRampEnd {
             let step = max(0, min(7, Int((x - wallRampStart) / max(0.1, wallRampStepWidth))))
             if step < wallRampSteps {
@@ -440,16 +451,16 @@ final class LemmingsView: NSView {
         }
     }
 
-    @objc private func tapped(_ recognizer: NSClickGestureRecognizer) {
+    private func handleTouch(at point: CGPoint) {
         if gameMode == .demo {
-            nuke()
+            if !demoNuked { nuke() }
             return
         }
-        let point = recognizer.location(in: self)
+
         guard let index = walkers.indices
             .filter({ walkers[$0].state != .saved && walkers[$0].state != .dead })
             .min(by: { abs((walkers[$0].x + spriteWidth / 2) - point.x) < abs((walkers[$1].x + spriteWidth / 2) - point.x) }),
-              abs(walkers[index].x + spriteWidth / 2 - point.x) < 22 else { return }
+              abs(walkers[index].x + spriteWidth / 2 - point.x) < 24 else { return }
         apply(selectedSkill, to: index)
     }
 
@@ -506,7 +517,9 @@ final class LemmingsView: NSView {
     }
 
     private func drawHUD() {
-        let text = "OUT \(spawnedCount - savedCount - deadCount)  IN \(savedCount)  RR \(releaseRate)\(paused ? "  PAUSE" : "")"
+        var text = "OUT \(spawnedCount - savedCount - deadCount)  IN \(savedCount)  RR \(releaseRate)"
+        if paused { text += "  PAUSE" }
+        if gameMode == .interactive { text += "  \(selectedSkill.shortName): TAP LEMMING" }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 6.2, weight: .medium),
             .foregroundColor: NSColor(calibratedWhite: 0.78, alpha: 1)
@@ -681,10 +694,8 @@ final class LemmingsView: NSView {
         let wood = NSColor(calibratedRed: 0.90, green: 0.66, blue: 0.22, alpha: 1)
         wood.setFill()
         if phase < 0.45 {
-            // Reaching back toward the pack.
             NSRect(x: walker.x - 3, y: walker.y + 7, width: 5, height: 1.5).fill()
         } else {
-            // Swinging the next brick forward into place.
             NSRect(x: walker.x + spriteWidth - 1, y: walker.y + 8, width: 6, height: 1.5).fill()
         }
     }
