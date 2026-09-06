@@ -54,6 +54,7 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
 
     override func viewDidAppear() {
         super.viewDidAppear()
+        view.window?.makeFirstResponder(view)
         installTouchBar()
     }
 
@@ -62,7 +63,13 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
     }
 
     private func installTouchBar() {
-        touchBar = buildTouchBar()
+        let bar = buildTouchBar()
+
+        // Keep the controller's bar for normal responder-chain discovery,
+        // and also attach it directly to the key window. The latter is more
+        // reliable for our programmatically-created window on modern macOS.
+        touchBar = bar
+        view.window?.touchBar = bar
     }
 
     private func buildTouchBar() -> NSTouchBar {
