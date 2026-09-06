@@ -80,6 +80,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         currentLemmingsView = nil
         let bar = NSTouchBar()
         bar.delegate = self
+        // Explicitly leave the Escape slot alone. Home is a normal item.
+        bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .home:
@@ -217,7 +219,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             content = NSView(frame: frame)
         }
 
+        // The system-modal Touch Bar drops a custom item entirely when its
+        // view reports a rigid intrinsic width that no longer fits beside
+        // Home/system controls. Keep the host intrinsically flexible and let
+        // the Touch Bar choose the available width.
         item.view = TouchBarContentHostView(content: content, preferredWidth: width)
+        item.visibilityPriority = .high
         return item
     }
 
@@ -315,13 +322,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 }
 
 private final class TouchBarContentHostView: NSView {
-    private let preferred: NSSize
-
-    override var intrinsicContentSize: NSSize { preferred }
-
     init(content: NSView, preferredWidth: CGFloat) {
-        preferred = NSSize(width: preferredWidth, height: 30)
-        super.init(frame: NSRect(origin: .zero, size: preferred))
+        let size = NSSize(width: preferredWidth, height: 30)
+        super.init(frame: NSRect(origin: .zero, size: size))
         content.frame = bounds
         content.autoresizingMask = [.width, .height]
         addSubview(content)
