@@ -88,6 +88,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         let bar = NSTouchBar()
         bar.delegate = self
 
+        // Never replace the system Escape key. On Touch Bar Macs without a
+        // physical Escape key this is an essential system control, including
+        // for cancelling Screenshot, dialogs, full-screen UI, etc. Home is an
+        // ordinary high-priority Touch Bar item instead.
+        bar.escapeKeyReplacementItemIdentifier = nil
+
         switch mode {
         case .home:
             bar.defaultItemIdentifiers = [
@@ -101,24 +107,19 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ]
 
         case .lemmingsMenu:
-            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.lemmingsPlay, .lemmingsDemo]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .lemmingsPlay, .lemmingsDemo]
 
         case .lemmingsPlay:
-            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.lemmingsControls, .content]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .lemmingsControls, .content]
 
         case .lemmingsDemo:
-            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.content]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
 
         case .gamesMenu:
-            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure]
 
         case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure, .kitt, .tokiPona:
-            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.content]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         }
 
         touchBar = bar
@@ -134,7 +135,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
         switch identifier {
         case .touchBarpaloozaHome:
-            return buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
+            let item = buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
+            item.visibilityPriority = .high
+            return item
 
         case .touchBarpaloozaLemmings:
             return buttonItem(identifier: identifier, title: "Lemmings", action: #selector(showLemmingsMenu))
