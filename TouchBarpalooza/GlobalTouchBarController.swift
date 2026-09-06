@@ -16,15 +16,7 @@ private extension NSTouchBarItem.Identifier {
     static let lemmingsDemo = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.lemmings.demo")
     static let lemmingsControls = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.lemmings.controls")
 
-    static let pong = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.pong")
-    static let snake = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.snake")
-    static let breakout = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.breakout")
-    static let life = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.life")
-    static let pitfall = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.pitfall")
-    static let et = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.et")
-    static let caveFlyer = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.caveflyer")
-    static let adventure = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.adventure")
-
+    static let gamesCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.compact")
     static let content = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.content")
 }
 
@@ -60,6 +52,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         guard !isStarted else { return }
         isStarted = true
 
+        // Keep the system Escape key. The private system-modal host may still
+        // show its own X in some contexts; Home is our navigation control.
         DFRSystemModalShowsCloseBoxWhenFrontMost(false)
 
         let trayItem = NSCustomTouchBarItem(identifier: .touchBarpaloozaTray)
@@ -70,7 +64,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         NSTouchBarItem.addSystemTrayItem(trayItem)
         DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
-
         rebuildAndPresent()
     }
 
@@ -78,7 +71,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         guard isStarted else { return }
         NSTouchBar.dismissSystemModalTouchBar(touchBar)
         DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, false)
-        if let trayItem { NSTouchBarItem.removeSystemTrayItem(trayItem) }
+        if let item = trayItem { NSTouchBarItem.removeSystemTrayItem(item) }
         trayItem = nil
         isStarted = false
     }
@@ -87,12 +80,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         currentLemmingsView = nil
         let bar = NSTouchBar()
         bar.delegate = self
-
-        // Never replace the system Escape key. On Touch Bar Macs without a
-        // physical Escape key this is an essential system control, including
-        // for cancelling Screenshot, dialogs, full-screen UI, etc. Home is an
-        // ordinary high-priority Touch Bar item instead.
-        bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .home:
@@ -116,9 +103,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
 
         case .gamesMenu:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure]
+            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .gamesCompact]
 
-        case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure, .kitt, .tokiPona:
+        case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life,
+             .pitfall, .et, .caveFlyer, .adventure, .kitt, .tokiPona:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         }
 
@@ -160,98 +148,95 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             return buttonItem(identifier: identifier, title: "DEMO", action: #selector(startLemmingsDemo))
         case .lemmingsControls:
             return lemmingsControlItem(identifier: identifier)
-
-        case .pong:
-            return buttonItem(identifier: identifier, title: "Pong", action: #selector(showPong))
-        case .snake:
-            return buttonItem(identifier: identifier, title: "Snake", action: #selector(showSnake))
-        case .breakout:
-            return buttonItem(identifier: identifier, title: "Breakout", action: #selector(showBreakout))
-        case .life:
-            return buttonItem(identifier: identifier, title: "Life", action: #selector(showLife))
-        case .pitfall:
-            return buttonItem(identifier: identifier, title: "Pitfall", action: #selector(showPitfall))
-        case .et:
-            return buttonItem(identifier: identifier, title: "E.T.", action: #selector(showET))
-        case .caveFlyer:
-            return buttonItem(identifier: identifier, title: "Cave", action: #selector(showCaveFlyer))
-        case .adventure:
-            return buttonItem(identifier: identifier, title: "Adventure", action: #selector(showAdventure))
-
+        case .gamesCompact:
+            return gamesMenuItem(identifier: identifier)
         case .content:
             return contentItem(identifier: identifier)
-
         default:
             return nil
         }
     }
 
+    private func preferredContentWidth() -> CGFloat {
+        switch mode {
+        case .lemmingsPlay: return 410
+        case .lemmingsDemo: return 700
+        case .clipboard: return 690
+        case .audio: return 700
+        case .midi: return 690
+        case .pong, .snake, .breakout, .life: return 700
+        case .pitfall, .et, .caveFlyer, .adventure: return 700
+        case .kitt: return 700
+        case .tokiPona: return 700
+        default: return 600
+        }
+    }
+
     private func contentItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let frame = NSRect(x: 0, y: 0, width: 900, height: 30)
-        let view: NSView
+        let width = preferredContentWidth()
+        let frame = NSRect(x: 0, y: 0, width: width, height: 30)
+        let content: NSView
 
         switch mode {
         case .lemmingsPlay:
-            let game = LemmingsView(frame: frame, mode: .interactive)
-            currentLemmingsView = game
-            view = game
+            let view = LemmingsView(frame: frame, mode: .interactive)
+            currentLemmingsView = view
+            content = view
         case .lemmingsDemo:
-            let game = LemmingsView(frame: frame, mode: .demo)
-            currentLemmingsView = game
-            view = game
+            let view = LemmingsView(frame: frame, mode: .demo)
+            currentLemmingsView = view
+            content = view
         case .clipboard:
-            view = ClipboardShelfView(frame: frame)
+            content = ClipboardShelfView(frame: frame)
         case .audio:
-            view = AudioVisualizerView(frame: frame)
+            content = AudioVisualizerView(frame: frame)
         case .midi:
-            view = MIDIControlView(frame: frame)
+            content = MIDIControlView(frame: frame)
         case .pong:
-            view = MiniGameView(frame: frame, game: .pong)
+            content = MiniGameView(frame: frame, game: .pong)
         case .snake:
-            view = MiniGameView(frame: frame, game: .snake)
+            content = MiniGameView(frame: frame, game: .snake)
         case .breakout:
-            view = MiniGameView(frame: frame, game: .breakout)
+            content = MiniGameView(frame: frame, game: .breakout)
         case .life:
-            view = MiniGameView(frame: frame, game: .life)
+            content = MiniGameView(frame: frame, game: .life)
         case .pitfall:
-            view = PitfallHomageView(frame: frame)
+            content = PitfallHomageView(frame: frame)
         case .et:
-            view = ETHomageView(frame: frame)
+            content = ETHomageView(frame: frame)
         case .caveFlyer:
-            view = CaveFlyerView(frame: frame)
+            content = CaveFlyerView(frame: frame)
         case .adventure:
-            view = AdventureTerminalView(frame: frame)
+            content = AdventureTerminalView(frame: frame)
         case .kitt:
-            view = KITTScannerView(frame: frame)
+            content = KITTScannerView(frame: frame)
         case .tokiPona:
-            view = TokiPonaStudyView(frame: frame)
+            content = TokiPonaStudyView(frame: frame)
         default:
-            view = NSView(frame: frame)
+            content = NSView(frame: frame)
         }
 
-        view.autoresizingMask = [.width, .height]
-        item.view = view
+        item.view = TouchBarContentHostView(content: content, preferredWidth: width)
         return item
     }
 
     private func lemmingsControlItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView()
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 270, height: 30))
         stack.orientation = .horizontal
-        stack.spacing = 3
-        stack.frame = NSRect(x: 0, y: 0, width: 390, height: 30)
+        stack.spacing = 2
 
-        let skillControl = NSSegmentedControl(
+        let skills = NSSegmentedControl(
             labels: LemmingsView.Skill.allCases.map { $0.shortName },
             trackingMode: .selectOne,
             target: self,
             action: #selector(skillChanged(_:))
         )
-        skillControl.selectedSegment = LemmingsView.Skill.builder.rawValue
-        skillControl.font = .monospacedSystemFont(ofSize: 7, weight: .medium)
-        stack.addArrangedSubview(skillControl)
-
+        skills.selectedSegment = LemmingsView.Skill.builder.rawValue
+        skills.font = .monospacedSystemFont(ofSize: 6.5, weight: .medium)
+        skills.frame.size.width = 165
+        stack.addArrangedSubview(skills)
         stack.addArrangedSubview(compactButton("⏯", #selector(toggleLemmingsPause)))
         stack.addArrangedSubview(compactButton("−", #selector(releaseSlower)))
         stack.addArrangedSubview(compactButton("+", #selector(releaseFaster)))
@@ -261,13 +246,39 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         return item
     }
 
+    private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
+        let item = NSCustomTouchBarItem(identifier: identifier)
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 610, height: 30))
+        stack.orientation = .horizontal
+        stack.spacing = 2
+        stack.distribution = .fillEqually
+
+        let specs: [(String, Selector)] = [
+            ("Pong", #selector(showPong)),
+            ("Snake", #selector(showSnake)),
+            ("Break", #selector(showBreakout)),
+            ("Life", #selector(showLife)),
+            ("Pit", #selector(showPitfall)),
+            ("E.T.", #selector(showET)),
+            ("Scram", #selector(showCaveFlyer)),
+            ("Adv", #selector(showAdventure))
+        ]
+        for (title, action) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 8)
+            stack.addArrangedSubview(button)
+        }
+        item.view = stack
+        return item
+    }
+
     private func compactButton(_ title: String, _ action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
-        button.font = .systemFont(ofSize: 9)
+        button.font = .systemFont(ofSize: 8)
         return button
     }
 
-    private func buttonItem(identifier: NSTouchBarItem.Identifier, title: String, action: Selector) -> NSTouchBarItem {
+    private func buttonItem(identifier: NSTouchBarItem.Identifier, title: String, action: Selector) -> NSCustomTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
         item.view = NSButton(title: title, target: self, action: action)
         return item
@@ -303,140 +314,165 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showTokiPona() { mode = .tokiPona; rebuildAndPresent() }
 }
 
+private final class TouchBarContentHostView: NSView {
+    private let preferred: NSSize
+
+    override var intrinsicContentSize: NSSize { preferred }
+
+    init(content: NSView, preferredWidth: CGFloat) {
+        preferred = NSSize(width: preferredWidth, height: 30)
+        super.init(frame: NSRect(origin: .zero, size: preferred))
+        content.frame = bounds
+        content.autoresizingMask = [.width, .height]
+        addSubview(content)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
 final class TokiPonaStudyView: NSView {
     private struct Entry {
         let word: String
         let meanings: String
     }
 
-    private let entries: [Entry] = [
-        Entry(word: "a", meanings: "ah!; emotion, emphasis, confirmation"),
-        Entry(word: "akesi", meanings: "reptile, amphibian; non-cute animal"),
-        Entry(word: "ala", meanings: "no, not, nothing; zero"),
-        Entry(word: "alasa", meanings: "hunt, forage, seek, try to"),
-        Entry(word: "ale", meanings: "all, every, everything; universe; 100"),
-        Entry(word: "anpa", meanings: "low, below, bottom; humble, defeated"),
-        Entry(word: "ante", meanings: "different, changed, other; change"),
-        Entry(word: "anu", meanings: "or"),
-        Entry(word: "awen", meanings: "stay, remain, wait, continue; enduring"),
-        Entry(word: "e", meanings: "marks the direct object"),
-        Entry(word: "en", meanings: "joins multiple subjects"),
-        Entry(word: "esun", meanings: "market, shop, trade, exchange"),
-        Entry(word: "ijo", meanings: "thing, object, matter, phenomenon"),
-        Entry(word: "ike", meanings: "bad, negative, harmful, unnecessary"),
-        Entry(word: "ilo", meanings: "tool, device, machine, instrument"),
-        Entry(word: "insa", meanings: "inside, center, contents; internal"),
-        Entry(word: "jaki", meanings: "dirty, gross, toxic; waste"),
-        Entry(word: "jan", meanings: "person, human, somebody"),
-        Entry(word: "jelo", meanings: "yellow, yellowish"),
-        Entry(word: "jo", meanings: "have, carry, contain, hold"),
-        Entry(word: "kala", meanings: "fish; aquatic animal"),
-        Entry(word: "kalama", meanings: "sound, noise; make sound, speak aloud"),
-        Entry(word: "kama", meanings: "come, arrive, become; future, arriving"),
-        Entry(word: "kasi", meanings: "plant, vegetation, herb, leaf"),
-        Entry(word: "ken", meanings: "can, may, possible; ability"),
-        Entry(word: "kepeken", meanings: "use, using, by means of"),
-        Entry(word: "kili", meanings: "fruit, vegetable, mushroom; edible plant part"),
-        Entry(word: "kiwen", meanings: "hard object, stone, metal; solid, hard"),
-        Entry(word: "ko", meanings: "paste, powder, semi-solid substance"),
-        Entry(word: "kon", meanings: "air, breath, wind; spirit, essence"),
-        Entry(word: "kule", meanings: "color, pigment; colorful"),
-        Entry(word: "kulupu", meanings: "group, community, collection, company"),
-        Entry(word: "kute", meanings: "hear, listen; ear, auditory"),
-        Entry(word: "la", meanings: "context separator: given X, Y"),
-        Entry(word: "lape", meanings: "sleep, rest; sleeping"),
-        Entry(word: "laso", meanings: "blue, green, cyan"),
-        Entry(word: "lawa", meanings: "head, mind; control, lead, govern"),
-        Entry(word: "len", meanings: "cloth, clothing, cover, layer"),
-        Entry(word: "lete", meanings: "cold, cool; uncooked, raw"),
-        Entry(word: "li", meanings: "separates subject from predicate"),
-        Entry(word: "lili", meanings: "small, little, short, young; reduce"),
-        Entry(word: "linja", meanings: "line, cord, hair, rope, long flexible thing"),
-        Entry(word: "lipu", meanings: "flat object, paper, page, book, document"),
-        Entry(word: "loje", meanings: "red, reddish"),
-        Entry(word: "lon", meanings: "at, in, on; exist, be present, true"),
-        Entry(word: "luka", meanings: "hand, arm; five; touch, handle"),
-        Entry(word: "lukin", meanings: "look, see, examine, read; eye"),
-        Entry(word: "lupa", meanings: "hole, opening, door, window"),
-        Entry(word: "ma", meanings: "land, earth, country, place, outdoors"),
-        Entry(word: "mama", meanings: "parent, ancestor, creator, caretaker"),
-        Entry(word: "mani", meanings: "money, wealth, valuable possession"),
-        Entry(word: "meli", meanings: "woman, female, feminine"),
-        Entry(word: "mi", meanings: "I, me, we, us"),
-        Entry(word: "mije", meanings: "man, male, masculine"),
-        Entry(word: "moku", meanings: "eat, drink, consume; food"),
-        Entry(word: "moli", meanings: "dead, dying; kill, death"),
-        Entry(word: "monsi", meanings: "back, behind, rear"),
-        Entry(word: "mu", meanings: "animal sound; non-speech vocalization"),
-        Entry(word: "mun", meanings: "moon, star, night-sky object"),
-        Entry(word: "musi", meanings: "fun, play, game, art, entertainment"),
-        Entry(word: "mute", meanings: "many, much, several, very; quantity"),
-        Entry(word: "nanpa", meanings: "number; ordinal marker"),
-        Entry(word: "nasa", meanings: "strange, unusual, silly, drunk, altered"),
-        Entry(word: "nasin", meanings: "way, path, road, method, doctrine"),
-        Entry(word: "nena", meanings: "bump, hill, mountain, nose, protrusion"),
-        Entry(word: "ni", meanings: "this, that, these, those"),
-        Entry(word: "nimi", meanings: "word, name"),
-        Entry(word: "noka", meanings: "foot, leg; bottom, lower part"),
-        Entry(word: "o", meanings: "vocative; command, wish, request marker"),
-        Entry(word: "olin", meanings: "love, respect, deep affection"),
-        Entry(word: "ona", meanings: "he, she, it, they; him, her, them"),
-        Entry(word: "open", meanings: "open, begin, start, turn on"),
-        Entry(word: "pakala", meanings: "broken, damaged, mistake; break, harm"),
-        Entry(word: "pali", meanings: "work, do, make, build; activity"),
-        Entry(word: "palisa", meanings: "long hard object, rod, stick, branch"),
-        Entry(word: "pan", meanings: "grain, bread, cereal, starchy staple"),
-        Entry(word: "pana", meanings: "give, send, emit, provide, put"),
-        Entry(word: "pi", meanings: "regroups modifiers in a noun phrase"),
-        Entry(word: "pilin", meanings: "feel, think intuitively; heart, emotion"),
-        Entry(word: "pimeja", meanings: "black, dark, shadowy"),
-        Entry(word: "pini", meanings: "end, finish, past; closed, completed"),
-        Entry(word: "pipi", meanings: "bug, insect, spider, small crawling animal"),
-        Entry(word: "poka", meanings: "side, nearby, beside; with, proximity"),
-        Entry(word: "poki", meanings: "container, box, bowl, bag, vessel"),
-        Entry(word: "pona", meanings: "good, simple, positive, useful; improve, fix"),
-        Entry(word: "pu", meanings: "the official Toki Pona book; use/interact with pu"),
-        Entry(word: "sama", meanings: "same, similar, equal; like, as"),
-        Entry(word: "seli", meanings: "fire, heat, warmth; hot, cooked"),
-        Entry(word: "selo", meanings: "outer layer, skin, shell, boundary"),
-        Entry(word: "seme", meanings: "what? which? who?; question word"),
-        Entry(word: "sewi", meanings: "above, high, upper; sacred, divine"),
-        Entry(word: "sijelo", meanings: "body, physical state, torso"),
-        Entry(word: "sike", meanings: "circle, sphere, cycle, round object; year"),
-        Entry(word: "sin", meanings: "new, fresh, additional, again"),
-        Entry(word: "sina", meanings: "you"),
-        Entry(word: "sinpin", meanings: "front, face, wall, vertical surface"),
-        Entry(word: "sitelen", meanings: "image, symbol, writing; draw, write"),
-        Entry(word: "sona", meanings: "know, understand, skill, knowledge"),
-        Entry(word: "soweli", meanings: "land mammal; animal"),
-        Entry(word: "suli", meanings: "big, tall, long, important, adult; increase"),
-        Entry(word: "suno", meanings: "sun, light, brightness, lamp"),
-        Entry(word: "supa", meanings: "horizontal surface, table, floor, furniture"),
-        Entry(word: "suwi", meanings: "sweet, cute, pleasant, adorable"),
-        Entry(word: "tan", meanings: "from, because of, caused by; origin, cause"),
-        Entry(word: "taso", meanings: "only, solely; but, however"),
-        Entry(word: "tawa", meanings: "go, move; toward, to, for; moving"),
-        Entry(word: "telo", meanings: "water, liquid, fluid, beverage; wash"),
-        Entry(word: "tenpo", meanings: "time, duration, moment, event, period"),
-        Entry(word: "toki", meanings: "speech, language, communication; speak, say"),
-        Entry(word: "tomo", meanings: "building, room, house, indoor space"),
-        Entry(word: "tu", meanings: "two; divide, split"),
-        Entry(word: "unpa", meanings: "sex, sexual activity"),
-        Entry(word: "uta", meanings: "mouth, lips, oral opening"),
-        Entry(word: "utala", meanings: "fight, conflict, compete, challenge"),
-        Entry(word: "walo", meanings: "white, pale, light-colored"),
-        Entry(word: "wan", meanings: "one, unique; unite, combine"),
-        Entry(word: "waso", meanings: "bird, flying creature"),
-        Entry(word: "wawa", meanings: "strong, powerful, energetic, intense"),
-        Entry(word: "weka", meanings: "away, absent, removed; remove, discard"),
-        Entry(word: "wile", meanings: "want, need, must, should; desire")
-    ]
+    private static let rawEntries = """
+a|ah!; emotion, emphasis, confirmation
+akesi|reptile, amphibian; non-cute animal
+ala|no, not, nothing; zero
+alasa|hunt, forage, seek, try to
+ale|all, every, everything; universe; 100
+anpa|low, below, bottom; humble, defeated
+ante|different, changed, other; change
+anu|or
+awen|stay, remain, wait, continue; enduring
+e|marks the direct object
+en|joins multiple subjects
+esun|market, shop, trade, exchange
+ijo|thing, object, matter, phenomenon
+ike|bad, negative, harmful, unnecessary
+ilo|tool, device, machine, instrument
+insa|inside, center, contents; internal
+jaki|dirty, gross, toxic; waste
+jan|person, human, somebody
+jelo|yellow, yellowish
+jo|have, carry, contain, hold
+kala|fish; aquatic animal
+kalama|sound, noise; make sound, speak aloud
+kama|come, arrive, become; future, arriving
+kasi|plant, vegetation, herb, leaf
+ken|can, may, possible; ability
+kepeken|use, using, by means of
+kili|fruit, vegetable, mushroom; edible plant part
+kiwen|hard object, stone, metal; solid, hard
+ko|paste, powder, semi-solid substance
+kon|air, breath, wind; spirit, essence
+kule|color, pigment; colorful
+kulupu|group, community, collection, company
+kute|hear, listen; ear, auditory
+la|context separator: given X, Y
+lape|sleep, rest; sleeping
+laso|blue, green, cyan
+lawa|head, mind; control, lead, govern
+len|cloth, clothing, cover, layer
+lete|cold, cool; uncooked, raw
+li|separates subject from predicate
+lili|small, little, short, young; reduce
+linja|line, cord, hair, rope, long flexible thing
+lipu|flat object, paper, page, book, document
+loje|red, reddish
+lon|at, in, on; exist, be present, true
+luka|hand, arm; five; touch, handle
+lukin|look, see, examine, read; eye
+lupa|hole, opening, door, window
+ma|land, earth, country, place, outdoors
+mama|parent, ancestor, creator, caretaker
+mani|money, wealth, valuable possession
+meli|woman, female, feminine
+mi|I, me, we, us
+mije|man, male, masculine
+moku|eat, drink, consume; food
+moli|dead, dying; kill, death
+monsi|back, behind, rear
+mu|animal sound; non-speech vocalization
+mun|moon, star, night-sky object
+musi|fun, play, game, art, entertainment
+mute|many, much, several, very; quantity
+nanpa|number; ordinal marker
+nasa|strange, unusual, silly, drunk, altered
+nasin|way, path, road, method, doctrine
+nena|bump, hill, mountain, nose, protrusion
+ni|this, that, these, those
+nimi|word, name
+noka|foot, leg; bottom, lower part
+o|vocative; command, wish, request marker
+olin|love, respect, deep affection
+ona|he, she, it, they; him, her, them
+open|open, begin, start, turn on
+pakala|broken, damaged, mistake; break, harm
+pali|work, do, make, build; activity
+palisa|long hard object, rod, stick, branch
+pan|grain, bread, cereal, starchy staple
+pana|give, send, emit, provide, put
+pi|regroups modifiers in a noun phrase
+pilin|feel, think intuitively; heart, emotion
+pimeja|black, dark, shadowy
+pini|end, finish, past; closed, completed
+pipi|bug, insect, spider, small crawling animal
+poka|side, nearby, beside; with, proximity
+poki|container, box, bowl, bag, vessel
+pona|good, simple, positive, useful; improve, fix
+pu|the official Toki Pona book; use/interact with pu
+sama|same, similar, equal; like, as
+seli|fire, heat, warmth; hot, cooked
+selo|outer layer, skin, shell, boundary
+seme|what? which? who?; question word
+sewi|above, high, upper; sacred, divine
+sijelo|body, physical state, torso
+sike|circle, sphere, cycle, round object; year
+sin|new, fresh, additional, again
+sina|you
+sinpin|front, face, wall, vertical surface
+sitelen|image, symbol, writing; draw, write
+sona|know, understand, skill, knowledge
+soweli|land mammal; animal
+suli|big, tall, long, important, adult; increase
+suno|sun, light, brightness, lamp
+supa|horizontal surface, table, floor, furniture
+suwi|sweet, cute, pleasant, adorable
+tan|from, because of, caused by; origin, cause
+taso|only, solely; but, however
+tawa|go, move; toward, to, for; moving
+telo|water, liquid, fluid, beverage; wash
+tenpo|time, duration, moment, event, period
+toki|speech, language, communication; speak, say
+tomo|building, room, house, indoor space
+tu|two; divide, split
+unpa|sex, sexual activity
+uta|mouth, lips, oral opening
+utala|fight, conflict, compete, challenge
+walo|white, pale, light-colored
+wan|one, unique; unite, combine
+waso|bird, flying creature
+wawa|strong, powerful, energetic, intense
+weka|away, absent, removed; remove, discard
+wile|want, need, must, should; desire
+"""
+
+    private lazy var entries: [Entry] = Self.rawEntries.split(separator: "\n").compactMap { line in
+        let pieces = line.split(separator: "|", maxSplits: 1).map(String.init)
+        guard pieces.count == 2 else { return nil }
+        return Entry(word: pieces[0], meanings: pieces[1])
+    }
 
     private let wordLabel = NSTextField(labelWithString: "")
     private let pronunciationLabel = NSTextField(labelWithString: "")
     private let meaningLabel = NSTextField(labelWithString: "")
     private var timer: Timer?
     private var currentIndex: Int?
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -458,56 +494,43 @@ final class TokiPonaStudyView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
 
-        wordLabel.font = .monospacedSystemFont(ofSize: 17, weight: .bold)
+        wordLabel.font = .monospacedSystemFont(ofSize: 16, weight: .bold)
         wordLabel.textColor = .white
         wordLabel.alignment = .right
-        wordLabel.lineBreakMode = .byClipping
-        wordLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        pronunciationLabel.font = .monospacedSystemFont(ofSize: 9, weight: .medium)
+        pronunciationLabel.font = .monospacedSystemFont(ofSize: 8.5, weight: .medium)
         pronunciationLabel.textColor = NSColor(calibratedRed: 0.55, green: 0.85, blue: 1.0, alpha: 1)
         pronunciationLabel.alignment = .center
-        pronunciationLabel.lineBreakMode = .byClipping
-        pronunciationLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        meaningLabel.font = .systemFont(ofSize: 10, weight: .regular)
+        meaningLabel.font = .systemFont(ofSize: 9.5)
         meaningLabel.textColor = NSColor(calibratedWhite: 0.88, alpha: 1)
-        meaningLabel.alignment = .left
         meaningLabel.lineBreakMode = .byTruncatingTail
         meaningLabel.maximumNumberOfLines = 1
-        meaningLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let separator = NSTextField(labelWithString: "•")
-        separator.font = .systemFont(ofSize: 11, weight: .bold)
-        separator.textColor = NSColor(calibratedWhite: 0.45, alpha: 1)
-        separator.alignment = .center
-        separator.translatesAutoresizingMaskIntoConstraints = false
+        wordLabel.frame = NSRect(x: 8, y: 4, width: 118, height: 22)
+        pronunciationLabel.frame = NSRect(x: 132, y: 7, width: 112, height: 16)
+        meaningLabel.frame = NSRect(x: 258, y: 7, width: max(120, bounds.width - 266), height: 16)
+        wordLabel.autoresizingMask = []
+        pronunciationLabel.autoresizingMask = []
+        meaningLabel.autoresizingMask = [.width]
 
         addSubview(wordLabel)
         addSubview(pronunciationLabel)
-        addSubview(separator)
         addSubview(meaningLabel)
 
-        NSLayoutConstraint.activate([
-            wordLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            wordLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            wordLabel.widthAnchor.constraint(equalToConstant: 125),
-
-            pronunciationLabel.leadingAnchor.constraint(equalTo: wordLabel.trailingAnchor, constant: 5),
-            pronunciationLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            pronunciationLabel.widthAnchor.constraint(equalToConstant: 120),
-
-            separator.leadingAnchor.constraint(equalTo: pronunciationLabel.trailingAnchor, constant: 5),
-            separator.centerYAnchor.constraint(equalTo: centerYAnchor),
-            separator.widthAnchor.constraint(equalToConstant: 10),
-
-            meaningLabel.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: 8),
-            meaningLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            meaningLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
-        ])
+        // A real NSButton gives Touch Bar taps a reliable target even when
+        // TouchBarpalooza is not the frontmost app.
+        let hitButton = NSButton(frame: bounds)
+        hitButton.title = ""
+        hitButton.isBordered = false
+        hitButton.target = self
+        hitButton.action = #selector(nextWord)
+        hitButton.autoresizingMask = [.width, .height]
+        hitButton.alphaValue = 0.01
+        addSubview(hitButton)
     }
 
-    override func mouseDown(with event: NSEvent) {
+    @objc private func nextWord() {
         showRandomWord()
         restartTimer()
     }
@@ -531,42 +554,39 @@ final class TokiPonaStudyView: NSView {
         let entry = entries[next]
         wordLabel.stringValue = entry.word
         pronunciationLabel.stringValue = pronunciation(for: entry.word)
-        meaningLabel.stringValue = entry.meanings
+        meaningLabel.stringValue = "•  " + entry.meanings
     }
 
     private func pronunciation(for word: String) -> String {
-        let characters = Array(word)
+        let chars = Array(word)
         let vowels: Set<Character> = ["a", "e", "i", "o", "u"]
         var syllables: [String] = []
         var index = 0
 
-        func consonant(_ character: Character) -> String {
-            character == "j" ? "y" : String(character)
-        }
-        func vowel(_ character: Character) -> String {
-            switch character {
+        func consonant(_ c: Character) -> String { c == "j" ? "y" : String(c) }
+        func vowel(_ c: Character) -> String {
+            switch c {
             case "a": return "ah"
             case "e": return "eh"
             case "i": return "ee"
             case "o": return "oh"
             case "u": return "oo"
-            default: return String(character)
+            default: return String(c)
             }
         }
 
-        while index < characters.count {
+        while index < chars.count {
             var syllable = ""
-            if !vowels.contains(characters[index]) {
-                syllable += consonant(characters[index])
+            if !vowels.contains(chars[index]) {
+                syllable += consonant(chars[index])
                 index += 1
             }
-            guard index < characters.count, vowels.contains(characters[index]) else { break }
-            syllable += vowel(characters[index])
+            guard index < chars.count, vowels.contains(chars[index]) else { break }
+            syllable += vowel(chars[index])
             index += 1
-
-            if index < characters.count, characters[index] == "n" {
-                let nextIsVowel = index + 1 < characters.count && vowels.contains(characters[index + 1])
-                if !nextIsVowel {
+            if index < chars.count, chars[index] == "n" {
+                let followedByVowel = index + 1 < chars.count && vowels.contains(chars[index + 1])
+                if !followedByVowel {
                     syllable += "n"
                     index += 1
                 }
@@ -574,8 +594,8 @@ final class TokiPonaStudyView: NSView {
             syllables.append(syllable)
         }
 
-        return syllables.enumerated().map { offset, syllable in
-            offset == 0 ? syllable.uppercased() : syllable.lowercased()
+        return syllables.enumerated().map { pair in
+            pair.offset == 0 ? pair.element.uppercased() : pair.element.lowercased()
         }.joined(separator: "-")
     }
 }
