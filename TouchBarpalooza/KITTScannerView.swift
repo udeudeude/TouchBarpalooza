@@ -9,6 +9,8 @@ final class KITTScannerView: NSView {
     private var accumulator: TimeInterval = 0
     private var lastTick = ProcessInfo.processInfo.systemUptime
 
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         commonInit()
@@ -36,17 +38,17 @@ final class KITTScannerView: NSView {
         lastTick = now
         accumulator += dt
 
-        // The television scanner is closer to a row of lamps with incandescent
-        // persistence than to a single glowing rectangle bouncing around.
-        // Every frame all lamps decay, while the current lamp is driven hard.
-        let decay = CGFloat(pow(0.018, dt))
+        // The original scanner used eight incandescent lamps. The active lamp
+        // advances 1-2-3-4-5-6-7-8-7-6-5-4-3-2 without dwelling at either end,
+        // while the previous lamps decay into a soft trailing glow.
+        let decay = CGFloat(pow(0.026, dt))
         for index in intensities.indices {
             intensities[index] *= decay
-            if intensities[index] < 0.015 { intensities[index] = 0 }
+            if intensities[index] < 0.012 { intensities[index] = 0 }
         }
 
-        if accumulator >= 0.095 {
-            accumulator -= 0.095
+        if accumulator >= 0.092 {
+            accumulator -= 0.092
             headIndex += direction
             if headIndex >= lampCount - 1 {
                 headIndex = lampCount - 1
@@ -57,39 +59,40 @@ final class KITTScannerView: NSView {
             }
         }
 
-        intensities[headIndex] = 1.0
+        intensities[headIndex] = 1
         needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.setFill()
-        dirtyRect.fill()
+        NSColor.black.setFill(); dirtyRect.fill()
 
-        let totalWidth = min(bounds.width - 20, 620)
-        let gap: CGFloat = 4
+        let totalWidth = min(bounds.width - 10, 650)
+        let gap: CGFloat = 3
         let lampWidth = (totalWidth - gap * CGFloat(lampCount - 1)) / CGFloat(lampCount)
         let startX = (bounds.width - totalWidth) / 2
-        let lampHeight: CGFloat = 16
-        let y = bounds.midY - lampHeight / 2
+
+        // On the car the scanner is a shallow slot, but on the Touch Bar the
+        // whole display is effectively that slot. Filling almost the full OLED
+        // height preserves the proportions of the individual lenses better.
+        let lampHeight = max(18, bounds.height - 2)
+        let y = (bounds.height - lampHeight) / 2
 
         for index in 0..<lampCount {
             let intensity = intensities[index]
             let x = startX + CGFloat(index) * (lampWidth + gap)
 
-            // A very faint red glass remains visible even when a lamp is off.
-            NSColor(calibratedRed: 0.06, green: 0.0, blue: 0.0, alpha: 1).setFill()
+            NSColor(calibratedRed: 0.055, green: 0.0, blue: 0.0, alpha: 1).setFill()
             NSRect(x: x, y: y, width: lampWidth, height: lampHeight).fill()
 
             guard intensity > 0 else { continue }
+            let red = min(1, 0.16 + intensity * 0.94)
+            let green = intensity > 0.84 ? (intensity - 0.84) * 0.45 : 0
+            NSColor(calibratedRed: red, green: green, blue: 0, alpha: 1).setFill()
+            NSRect(x: x + 1, y: y + 1, width: max(1, lampWidth - 2), height: max(1, lampHeight - 2)).fill()
 
-            let red = min(1.0, 0.18 + intensity * 0.92)
-            let green = intensity > 0.82 ? (intensity - 0.82) * 0.55 : 0
-            NSColor(calibratedRed: red, green: green, blue: 0.0, alpha: 1).setFill()
-            NSRect(x: x, y: y + 1, width: lampWidth, height: lampHeight - 2).fill()
-
-            if intensity > 0.75 {
-                NSColor(calibratedRed: 1.0, green: 0.18, blue: 0.08, alpha: 0.9).setFill()
-                NSRect(x: x + 2, y: y + 3, width: max(1, lampWidth - 4), height: lampHeight - 6).fill()
+            if intensity > 0.80 {
+                NSColor(calibratedRed: 1, green: 0.12, blue: 0.04, alpha: 0.9).setFill()
+                NSRect(x: x + 3, y: y + 3, width: max(1, lampWidth - 6), height: max(1, lampHeight - 6)).fill()
             }
         }
     }
