@@ -8,16 +8,19 @@ final class AudioVisualizerView: NSView {
     private var displayTimer: Timer?
     private var status = "MIC"
 
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
-        startDisplayTimer()
-        requestAndStartAudio()
+        commonInit()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        commonInit()
+    }
+
+    private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         startDisplayTimer()
@@ -39,12 +42,9 @@ final class AudioVisualizerView: NSView {
     private func requestAndStartAudio() {
         AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
             DispatchQueue.main.async {
-                guard let self else { return }
-                if granted {
-                    self.startAudio()
-                } else {
-                    self.status = "MIC PERMISSION"
-                }
+                guard let self = self else { return }
+                if granted { self.startAudio() }
+                else { self.status = "MIC PERMISSION" }
             }
         }
     }
@@ -57,10 +57,6 @@ final class AudioVisualizerView: NSView {
             return
         }
 
-        // A longer analysis window makes bass information much more useful.
-        // 4096 frames is still responsive on a Touch Bar, but gives several
-        // cycles even for ordinary bass notes instead of strongly favoring
-        // whistles and other high-frequency sounds.
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             self?.analyze(buffer: buffer, sampleRate: format.sampleRate)
         }
@@ -79,11 +75,11 @@ final class AudioVisualizerView: NSView {
         let count = min(Int(buffer.frameLength), 4096)
         guard count > 128 else { return }
 
-        var mean: Double = 0
+        var mean = 0.0
         for i in 0..<count { mean += Double(channel[i]) }
         mean /= Double(count)
 
-        var sum: Double = 0
+        var sum = 0.0
         for i in 0..<count {
             let sample = Double(channel[i]) - mean
             sum += sample * sample
@@ -92,10 +88,6 @@ final class AudioVisualizerView: NSView {
         let rmsDB = 20.0 * log10(max(rms, 0.000001))
         let newLevel = CGFloat(min(1, max(0, (rmsDB + 62.0) / 56.0)))
 
-        // Logarithmic centers from roughly 38 Hz through the upper treble.
-        // Each center uses a Hann-windowed single-frequency DFT. The longer
-        // window plus a mild bass compensation gives low notes enough visual
-        // weight without making room rumble dominate the display.
         let minimumFrequency = 38.0
         let maximumFrequency = min(15000.0, sampleRate * 0.44)
         let ratio = pow(maximumFrequency / minimumFrequency, 1.0 / Double(spectrum.count - 1))
@@ -118,16 +110,14 @@ final class AudioVisualizerView: NSView {
             let magnitude = (2.0 * sqrt(real * real + imag * imag)) / Double(count)
             let db = 20.0 * log10(max(magnitude, 0.0000001))
             var normalized = min(1.0, max(0.0, (db + 72.0) / 54.0))
-
             if frequency < 180 {
-                let bassBoost = 1.0 + (180.0 - frequency) / 360.0
-                normalized = min(1.0, normalized * bassBoost)
+                normalized = min(1.0, normalized * (1.0 + (180.0 - frequency) / 360.0))
             }
             newSpectrum[band] = CGFloat(normalized)
         }
 
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            guard let self = self else { return }
             self.level = self.level * 0.58 + newLevel * 0.42
             for index in self.spectrum.indices {
                 self.spectrum[index] = max(newSpectrum[index], self.spectrum[index] * 0.72)
@@ -145,11 +135,19 @@ final class AudioVisualizerView: NSView {
         meterRect.fill()
 
         let activeWidth = meterRect.width * level
+        let warningStart = meterRect.width * 0.72
+        let greenWidth = min(activeWidth, warningStart)
         NSColor(calibratedRed: 0.15, green: 0.85, blue: 0.28, alpha: 1).setFill()
-        NSRect(x: meterRect.minX, y: meterRect.minY, width: activeWidth * 0.72, height: meterRect.height).fill()
-        if level > 0.72 {
+        NSRect(x: meterRect.minX, y: meterRect.minY, width: greenWidth, height: meterRect.height).fill()
+
+        if activeWidth > warningStart {
             NSColor(calibratedRed: 1.0, green: 0.72, blue: 0.08, alpha: 1).setFill()
-            NSRect(x: meterRect.minX + meterRect.width * 0.72, y: meterRect.minY, width: max(0, activeWidth - meterRect.width * 0.72), height: meterRect.height).fill()
+            NSRect(
+                x: meterRect.minX + warningStart,
+                y: meterRect.minY,
+                width: activeWidth - warningStart,
+                height: meterRect.height
+            ).fill()
         }
 
         let attrs: [NSAttributedString.Key: Any] = [
@@ -169,8 +167,6 @@ final class AudioVisualizerView: NSView {
             let height = max(1, value * maximumHeight)
             let x = startX + CGFloat(index) * (barWidth + gap)
             NSColor(calibratedRed: 0.16 + 0.55 * value, green: 0.35 + 0.45 * value, blue: 0.95, alpha: 1).setFill()
-            // AppKit's origin is at the bottom here, so anchoring at y=1
-            // makes the spectrum grow upward instead of hanging from the top.
             NSRect(x: x, y: baseline, width: barWidth, height: height).fill()
         }
     }
