@@ -99,10 +99,17 @@ final class MIDIControlView: NSView {
 
         var packetList = MIDIPacketList()
         let packet = MIDIPacketListInit(&packetList)
-        var bytes: [UInt8] = [0xB0, controller, value]
+        let bytes: [UInt8] = [0xB0, controller, value]
         let result: UnsafeMutablePointer<MIDIPacket>? = bytes.withUnsafeBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return nil }
-            return MIDIPacketListAdd(&packetList, 1024, packet, 0, buffer.count, base)
+            return MIDIPacketListAdd(
+                &packetList,
+                MemoryLayout<MIDIPacketList>.size,
+                packet,
+                0,
+                buffer.count,
+                base
+            )
         }
         if result != nil {
             MIDISend(outputPort, destination, &packetList)
