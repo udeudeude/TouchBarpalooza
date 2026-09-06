@@ -3,6 +3,7 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
     private var controller: MainViewController?
+    private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let controller = MainViewController()
@@ -20,10 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         self.window = window
 
+        globalTouchBarController.start()
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        globalTouchBarController.stop()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 }
