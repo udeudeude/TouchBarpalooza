@@ -73,6 +73,8 @@ final class LemmingsView: NSView {
     private var bridgeProgress: CGFloat = 0
     private var wallBashProgress: CGFloat = 0
     private var trenchDug = false
+    private var demoGapFailureObserved = false
+    private var demoWallFailureObserved = false
     private var demoAssignedBuilder = false
     private var demoAssignedBasher = false
 
@@ -139,6 +141,15 @@ final class LemmingsView: NSView {
         1.55 - (Double(releaseRate) / 99.0) * 1.15
     }
 
+    private func demoMaySpawnNext() -> Bool {
+        guard gameMode == .demo else { return true }
+        if spawnedCount == 0 { return true }
+        if !demoGapFailureObserved { return false }
+        if !demoAssignedBuilder { return spawnedCount < 2 }
+        if bridgeProgress < 1 { return false }
+        return true
+    }
+
     private func startAnimating() {
         lastTick = ProcessInfo.processInfo.systemUptime
         let newTimer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in self?.tick() }
@@ -153,7 +164,7 @@ final class LemmingsView: NSView {
         guard !paused else { return }
         elapsed += dt
 
-        if spawnedCount < lemmingCount && elapsed >= nextSpawnTime {
+        if spawnedCount < lemmingCount && elapsed >= nextSpawnTime && demoMaySpawnNext() {
             walkers.append(Walker(x: entranceDropX, y: 6))
             spawnedCount += 1
             nextSpawnTime = elapsed + spawnInterval
@@ -209,6 +220,13 @@ final class LemmingsView: NSView {
                     walkers[index].y = nextSurface - spriteHeight
                     walkers[index].walkDistance += abs(dx)
                 } else {
+                    if gameMode == .demo,
+                       bridgeProgress >= 1,
+                       wallBashProgress < 1,
+                       walkers[index].direction > 0,
+                       nextX + spriteWidth >= wallStart {
+                        demoWallFailureObserved = true
+                    }
                     walkers[index].direction *= -1
                 }
                 return
@@ -218,6 +236,13 @@ final class LemmingsView: NSView {
             walkers[index].walkDistance += abs(dx)
 
             if nextSurface > currentSurface + 5 {
+                if gameMode == .demo,
+                   bridgeProgress < 1,
+                   walkers[index].direction > 0,
+                   nextX + spriteWidth >= gapStart,
+                   nextX <= gapEnd {
+                    demoGapFailureObserved = true
+                }
                 walkers[index].state = .falling
                 walkers[index].fallDistance = 0
                 return
@@ -327,7 +352,8 @@ final class LemmingsView: NSView {
     }
 
     private func runDemoAI() {
-        if !demoAssignedBuilder,
+        if demoGapFailureObserved,
+           !demoAssignedBuilder,
            let index = walkers.indices.first(where: {
                walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > gapStart - 24
            }) {
@@ -336,6 +362,7 @@ final class LemmingsView: NSView {
         }
 
         if bridgeProgress >= 1,
+           demoWallFailureObserved,
            !demoAssignedBasher,
            let index = walkers.indices.first(where: {
                walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > wallStart - 24
