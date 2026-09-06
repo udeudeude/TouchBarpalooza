@@ -11,6 +11,11 @@
 		A10000000000000000000003 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MainViewController.swift */; };
 		A10000000000000000000004 /* LemmingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* LemmingsView.swift */; };
 		A10000000000000000000005 /* GlobalTouchBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* GlobalTouchBarController.swift */; };
+		A10000000000000000000006 /* ClipboardShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* ClipboardShelfView.swift */; };
+		A10000000000000000000007 /* AudioVisualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* AudioVisualizerView.swift */; };
+		A10000000000000000000008 /* MIDIControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MIDIControlView.swift */; };
+		A10000000000000000000009 /* MiniGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* MiniGameView.swift */; };
+		A10000000000000000000010 /* KITTScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* KITTScannerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +28,11 @@
 		B10000000000000000000007 /* GlobalTouchBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTouchBarController.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* TouchBarPrivateApi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TouchBarPrivateApi.h; sourceTree = "<group>"; };
 		B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TouchBarpalooza-Bridging-Header.h"; sourceTree = "<group>"; };
+		B10000000000000000000010 /* ClipboardShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardShelfView.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* AudioVisualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVisualizerView.swift; sourceTree = "<group>"; };
+		B10000000000000000000012 /* MIDIControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIControlView.swift; sourceTree = "<group>"; };
+		B10000000000000000000013 /* MiniGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameView.swift; sourceTree = "<group>"; };
+		B10000000000000000000014 /* KITTScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KITTScannerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +61,11 @@
 				B10000000000000000000003 /* MainViewController.swift */,
 				B10000000000000000000004 /* LemmingsView.swift */,
 				B10000000000000000000007 /* GlobalTouchBarController.swift */,
+				B10000000000000000000010 /* ClipboardShelfView.swift */,
+				B10000000000000000000011 /* AudioVisualizerView.swift */,
+				B10000000000000000000012 /* MIDIControlView.swift */,
+				B10000000000000000000013 /* MiniGameView.swift */,
+				B10000000000000000000014 /* KITTScannerView.swift */,
 				B10000000000000000000008 /* TouchBarPrivateApi.h */,
 				B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */,
 				B10000000000000000000005 /* Info.plist */,
@@ -129,6 +144,11 @@
 				A10000000000000000000003 /* MainViewController.swift in Sources */,
 				A10000000000000000000004 /* LemmingsView.swift in Sources */,
 				A10000000000000000000005 /* GlobalTouchBarController.swift in Sources */,
+				A10000000000000000000006 /* ClipboardShelfView.swift in Sources */,
+				A10000000000000000000007 /* AudioVisualizerView.swift in Sources */,
+				A10000000000000000000008 /* MIDIControlView.swift in Sources */,
+				A10000000000000000000009 /* MiniGameView.swift in Sources */,
+				A10000000000000000000010 /* KITTScannerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -182,7 +202,7 @@
 				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.3;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
@@ -209,7 +229,7 @@
 				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 0.2;
+				MARKETING_VERSION = 0.3;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-framework",
