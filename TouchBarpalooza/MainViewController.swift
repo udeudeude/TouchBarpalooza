@@ -69,16 +69,17 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
         let bar = NSTouchBar()
         bar.delegate = self
         bar.customizationIdentifier = .touchBarpalooza
-        bar.escapeKeyReplacementItemIdentifier = .home
 
         switch mode {
         case .home:
             bar.defaultItemIdentifiers = [.lemmings, .meters, .clipboard, .notes, .about]
         case .lemmings:
-            bar.defaultItemIdentifiers = [.home, .canvas]
+            bar.escapeKeyReplacementItemIdentifier = .home
+            bar.defaultItemIdentifiers = [.canvas]
             bar.principalItemIdentifier = .canvas
         case .placeholder:
-            bar.defaultItemIdentifiers = [.home, .placeholder]
+            bar.escapeKeyReplacementItemIdentifier = .home
+            bar.defaultItemIdentifiers = [.placeholder]
             bar.principalItemIdentifier = .placeholder
         }
         return bar
