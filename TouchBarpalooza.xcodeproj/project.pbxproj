@@ -10,6 +10,7 @@
 		A10000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* AppDelegate.swift */; };
 		A10000000000000000000003 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MainViewController.swift */; };
 		A10000000000000000000004 /* LemmingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* LemmingsView.swift */; };
+		A10000000000000000000005 /* GlobalTouchBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* GlobalTouchBarController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +20,9 @@
 		B10000000000000000000004 /* LemmingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LemmingsView.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000006 /* TouchBarpalooza.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TouchBarpalooza.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000007 /* GlobalTouchBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTouchBarController.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* TouchBarPrivateApi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TouchBarPrivateApi.h; sourceTree = "<group>"; };
+		B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TouchBarpalooza-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +50,9 @@
 				B10000000000000000000002 /* AppDelegate.swift */,
 				B10000000000000000000003 /* MainViewController.swift */,
 				B10000000000000000000004 /* LemmingsView.swift */,
+				B10000000000000000000007 /* GlobalTouchBarController.swift */,
+				B10000000000000000000008 /* TouchBarPrivateApi.h */,
+				B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */,
 				B10000000000000000000005 /* Info.plist */,
 			);
 			path = TouchBarpalooza;
@@ -121,6 +128,7 @@
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
 				A10000000000000000000003 /* MainViewController.swift in Sources */,
 				A10000000000000000000004 /* LemmingsView.swift in Sources */,
+				A10000000000000000000005 /* GlobalTouchBarController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -166,13 +174,23 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/PrivateFrameworks,
+				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 0.2;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					DFRFoundation,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.udeudeude.TouchBarpalooza;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "TouchBarpalooza/TouchBarpalooza-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -183,13 +201,23 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/PrivateFrameworks,
+				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MARKETING_VERSION = 0.1;
+				MARKETING_VERSION = 0.2;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					DFRFoundation,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.udeudeude.TouchBarpalooza;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "TouchBarpalooza/TouchBarpalooza-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
