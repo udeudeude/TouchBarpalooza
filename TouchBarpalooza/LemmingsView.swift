@@ -1,181 +1,146 @@
 import AppKit
 
 final class LemmingsView: NSView {
+    enum Skill: Int, CaseIterable {
+        case climber, floater, bomber, blocker, builder, basher, miner, digger
+
+        var shortName: String {
+            switch self {
+            case .climber: return "CL"
+            case .floater: return "FL"
+            case .bomber: return "BO"
+            case .blocker: return "BL"
+            case .builder: return "BU"
+            case .basher: return "BA"
+            case .miner: return "MI"
+            case .digger: return "DI"
+            }
+        }
+    }
+
+    enum GameMode {
+        case interactive
+        case demo
+    }
+
     private enum State {
-        case waiting
-        case falling
-        case walking
-        case entering
-        case saved
+        case falling, walking, entering, blocking, building, bashing, mining, digging, bombing, saved, dead
     }
 
     private struct Walker {
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var state: State = .waiting
-        var spawnAt: TimeInterval
+        var x: CGFloat
+        var y: CGFloat
+        var direction: CGFloat = 1
+        var state: State = .falling
         var walkDistance: CGFloat = 0
         var stateTime: TimeInterval = 0
+        var isClimber = false
+        var isFloater = false
+        var fallDistance: CGFloat = 0
+        var nukeDelay: TimeInterval? = nil
     }
 
-    // The original walker uses an 8-frame cycle. These are newly drawn,
-    // compact 8x10 homages to the 1991 silhouette rather than copied assets.
+    private let gameMode: GameMode
+
+    // Newly drawn 8-frame homage to the original 1991 walker silhouette.
     private let walkerFrames: [[String]] = [
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SS....",
-            "..BBS...",
-            ".SBBB...",
-            "..BBB...",
-            "..BB....",
-            ".SS..S..",
-            "..S..SS."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SSS...",
-            "..BBB...",
-            ".SBBB.S.",
-            "..BBB...",
-            "..BB....",
-            ".S...SS.",
-            "SS......"
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SSS...",
-            "..BBB...",
-            "..BBBS..",
-            ".SBBB...",
-            "..B.....",
-            ".S..SS..",
-            "SS...S.."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SS....",
-            "..BBB...",
-            "..BBBS..",
-            ".SBBB...",
-            "...B....",
-            ".SS..S..",
-            ".....SS."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SS....",
-            "..BBS...",
-            "..BBB...",
-            ".SBBB...",
-            "...BB...",
-            "..S..SS.",
-            ".SS..S.."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SSS...",
-            "..BBB...",
-            ".SBBB...",
-            "..BBBS..",
-            "...BB...",
-            "SS...S..",
-            ".S..SS.."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SSS...",
-            "..BBB...",
-            "S.BBB...",
-            "..BBBS..",
-            "....B...",
-            "SS..S...",
-            ".S...SS."
-        ],
-        [
-            "........",
-            "..GGGG..",
-            ".GGSSS..",
-            "..SS....",
-            ".SBBB...",
-            "..BBB...",
-            "..BBBS..",
-            "...BB...",
-            ".SS..S..",
-            "..S..SS."
-        ]
+        ["........","..GGGG..",".GGSSS..","..SS....","..BBS...",".SBBB...","..BBB...","..BB....",".SS..S..","..S..SS."],
+        ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...",".SBBB.S.","..BBB...","..BB....",".S...SS.","SS......"],
+        ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...","..BBBS..",".SBBB...","..B.....",".S..SS..","SS...S.."],
+        ["........","..GGGG..",".GGSSS..","..SS....","..BBB...","..BBBS..",".SBBB...","...B....",".SS..S..",".....SS."],
+        ["........","..GGGG..",".GGSSS..","..SS....","..BBS...","..BBB...",".SBBB...","...BB...","..S..SS.",".SS..S.."],
+        ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...",".SBBB...","..BBBS..","...BB...","SS...S..",".S..SS.."],
+        ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...","S.BBB...","..BBBS..","....B...","SS..S...",".S...SS."],
+        ["........","..GGGG..",".GGSSS..","..SS....",".SBBB...","..BBB...","..BBBS..","...BB...",".SS..S..","..S..SS."]
     ]
 
-    private let pixel: CGFloat = 1.0
-    private let walkSpeed: CGFloat = 24.0
-    private let fallSpeed: CGFloat = 42.0
-    private let spawnInterval: TimeInterval = 0.85
-    private let lemmingCount = 8
+    private let pixel: CGFloat = 1.55
+    private let walkSpeed: CGFloat = 25.0
+    private let baseFallSpeed: CGFloat = 44.0
+    private let lemmingCount = 12
 
     private var walkers: [Walker] = []
     private var timer: Timer?
     private var lastTick = ProcessInfo.processInfo.systemUptime
     private var elapsed: TimeInterval = 0
-    private var resetDelay: TimeInterval = 0
+    private var nextSpawnTime: TimeInterval = 0.8
+    private var spawnedCount = 0
+    private var savedCount = 0
+    private var deadCount = 0
+    private var selectedSkill: Skill = .builder
+    private var paused = false
+    private var releaseRate = 50
+    private var gapBridged = false
+    private var wallBashed = false
+    private var trenchDug = false
+    private var demoAssignedBuilder = false
+    private var demoAssignedBasher = false
 
     override var isFlipped: Bool { true }
 
     private var spriteWidth: CGFloat { 8 * pixel }
     private var spriteHeight: CGFloat { 10 * pixel }
-    private var groundY: CGFloat { bounds.height - 4 }
+    private var groundY: CGFloat { bounds.height - 3 }
     private var walkY: CGFloat { groundY - spriteHeight }
-    private var entranceX: CGFloat { 14 }
-    private var entranceDropX: CGFloat { entranceX + 13 }
-    private var exitX: CGFloat { max(120, bounds.width - 38) }
-    private var exitDoorX: CGFloat { exitX + 12 }
+    private var entranceX: CGFloat { 10 }
+    private var entranceDropX: CGFloat { entranceX + 19 }
+    private var exitX: CGFloat { max(150, bounds.width - 47) }
+    private var exitDoorX: CGFloat { exitX + 17 }
+    private var gapStart: CGFloat { max(145, bounds.width * 0.34) }
+    private var gapEnd: CGFloat { gapStart + 38 }
+    private var wallStart: CGFloat { max(gapEnd + 70, bounds.width * 0.62) }
+    private var wallEnd: CGFloat { wallStart + 18 }
 
-    override init(frame frameRect: NSRect) {
+    init(frame frameRect: NSRect, mode: GameMode = .interactive) {
+        self.gameMode = mode
         super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
-        resetCycle()
-        startAnimating()
+        commonInit()
     }
 
     required init?(coder: NSCoder) {
+        self.gameMode = .interactive
         super.init(coder: coder)
+        commonInit()
+    }
+
+    private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
-        resetCycle()
         startAnimating()
     }
 
-    deinit {
-        timer?.invalidate()
+    deinit { timer?.invalidate() }
+
+    func selectSkill(_ skill: Skill) {
+        selectedSkill = skill
+        needsDisplay = true
     }
 
-    private func resetCycle() {
-        elapsed = 0
-        resetDelay = 0
-        walkers = (0..<lemmingCount).map { index in
-            Walker(spawnAt: 1.0 + Double(index) * spawnInterval)
+    func togglePause() {
+        paused.toggle()
+        needsDisplay = true
+    }
+
+    func adjustReleaseRate(by amount: Int) {
+        releaseRate = min(99, max(1, releaseRate + amount))
+        needsDisplay = true
+    }
+
+    func nuke() {
+        var delay: TimeInterval = 0
+        for index in walkers.indices where walkers[index].state != .saved && walkers[index].state != .dead {
+            walkers[index].nukeDelay = delay
+            delay += 0.18
         }
+    }
+
+    private var spawnInterval: TimeInterval {
+        1.55 - (Double(releaseRate) / 99.0) * 1.15
     }
 
     private func startAnimating() {
-        timer?.invalidate()
         lastTick = ProcessInfo.processInfo.systemUptime
-        let newTimer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.tick()
-        }
+        let newTimer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in self?.tick() }
         timer = newTimer
         RunLoop.main.add(newTimer, forMode: .common)
     }
@@ -184,252 +149,335 @@ final class LemmingsView: NSView {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(now - lastTick, 0.1)
         lastTick = now
+        guard !paused else { return }
         elapsed += dt
 
+        if spawnedCount < lemmingCount && elapsed >= nextSpawnTime {
+            walkers.append(Walker(x: entranceDropX, y: 6))
+            spawnedCount += 1
+            nextSpawnTime = elapsed + spawnInterval
+        }
+
         for index in walkers.indices {
-            switch walkers[index].state {
-            case .waiting:
-                if elapsed >= walkers[index].spawnAt {
-                    walkers[index].state = .falling
-                    walkers[index].x = entranceDropX
-                    walkers[index].y = 6
+            if var delay = walkers[index].nukeDelay {
+                delay -= dt
+                walkers[index].nukeDelay = delay
+                if delay <= 0 && walkers[index].state != .dead && walkers[index].state != .saved {
+                    walkers[index].state = .bombing
                     walkers[index].stateTime = 0
+                    walkers[index].nukeDelay = nil
                 }
-
-            case .falling:
-                walkers[index].y += fallSpeed * CGFloat(dt)
-                if walkers[index].y >= walkY {
-                    walkers[index].y = walkY
-                    walkers[index].state = .walking
-                    walkers[index].stateTime = 0
-                }
-
-            case .walking:
-                let dx = walkSpeed * CGFloat(dt)
-                walkers[index].x += dx
-                walkers[index].walkDistance += dx
-
-                // The trigger is inside the visible doorway. The lemming now
-                // enters the exit instead of continuing behind the structure.
-                if walkers[index].x + spriteWidth * 0.72 >= exitDoorX {
-                    walkers[index].state = .entering
-                    walkers[index].stateTime = 0
-                }
-
-            case .entering:
-                walkers[index].stateTime += dt
-                walkers[index].x += walkSpeed * 0.45 * CGFloat(dt)
-                walkers[index].walkDistance += walkSpeed * 0.45 * CGFloat(dt)
-
-                if walkers[index].stateTime >= 0.32 {
-                    walkers[index].state = .saved
-                }
-
-            case .saved:
-                break
             }
+            updateWalker(index, dt: dt)
         }
 
-        if walkers.allSatisfy({ $0.state == .saved }) {
-            resetDelay += dt
-            if resetDelay > 1.4 {
-                resetCycle()
-            }
-        } else {
-            resetDelay = 0
-        }
-
+        if gameMode == .demo { runDemoAI() }
         needsDisplay = true
+    }
+
+    private func updateWalker(_ index: Int, dt: TimeInterval) {
+        switch walkers[index].state {
+        case .falling:
+            let fallSpeed = walkers[index].isFloater ? baseFallSpeed * 0.34 : baseFallSpeed
+            let dy = fallSpeed * CGFloat(dt)
+            walkers[index].y += dy
+            walkers[index].fallDistance += dy
+            let surface = surfaceY(at: walkers[index].x + spriteWidth / 2)
+            if walkers[index].y + spriteHeight >= surface {
+                let hardFall = walkers[index].fallDistance > 22 && !walkers[index].isFloater
+                walkers[index].y = surface - spriteHeight
+                walkers[index].state = hardFall ? .dead : .walking
+                walkers[index].stateTime = 0
+                if hardFall { deadCount += 1 }
+            }
+
+        case .walking:
+            let dx = walkers[index].direction * walkSpeed * CGFloat(dt)
+            let nextX = walkers[index].x + dx
+            let currentSurface = surfaceY(at: walkers[index].x + spriteWidth / 2)
+            let nextSurface = surfaceY(at: nextX + spriteWidth / 2)
+
+            if isBlockedByBlocker(index: index, nextX: nextX) {
+                walkers[index].direction *= -1
+                return
+            }
+
+            // A tall upward step is a wall. Climbers can traverse it; others turn.
+            if nextSurface < currentSurface - 6 {
+                if walkers[index].isClimber {
+                    walkers[index].x = nextX
+                    walkers[index].y = nextSurface - spriteHeight
+                    walkers[index].walkDistance += abs(dx)
+                } else {
+                    walkers[index].direction *= -1
+                }
+                return
+            }
+
+            walkers[index].x = nextX
+            walkers[index].walkDistance += abs(dx)
+
+            if nextSurface > currentSurface + 5 {
+                walkers[index].state = .falling
+                walkers[index].fallDistance = 0
+                return
+            }
+
+            walkers[index].y = nextSurface - spriteHeight
+
+            if walkers[index].direction > 0 && walkers[index].x + spriteWidth * 0.72 >= exitDoorX {
+                walkers[index].state = .entering
+                walkers[index].stateTime = 0
+            }
+
+        case .entering:
+            walkers[index].stateTime += dt
+            walkers[index].x += walkSpeed * 0.35 * CGFloat(dt)
+            if walkers[index].stateTime >= 0.35 {
+                walkers[index].state = .saved
+                savedCount += 1
+            }
+
+        case .blocking:
+            break
+
+        case .building:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime > 0.75 {
+                gapBridged = true
+                walkers[index].state = .walking
+                walkers[index].stateTime = 0
+            }
+
+        case .bashing, .mining:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime > 0.65 {
+                wallBashed = true
+                walkers[index].state = .walking
+                walkers[index].stateTime = 0
+            }
+
+        case .digging:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime > 0.65 {
+                trenchDug = true
+                walkers[index].state = .falling
+                walkers[index].fallDistance = 0
+                walkers[index].stateTime = 0
+            }
+
+        case .bombing:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime > 1.6 {
+                if abs(walkers[index].x - wallStart) < 35 { wallBashed = true }
+                if walkers[index].x > gapStart - 20 && walkers[index].x < gapEnd + 20 { gapBridged = true }
+                walkers[index].state = .dead
+                deadCount += 1
+            }
+
+        case .saved, .dead:
+            break
+        }
+    }
+
+    private func isBlockedByBlocker(index: Int, nextX: CGFloat) -> Bool {
+        for (otherIndex, other) in walkers.enumerated() where otherIndex != index && other.state == .blocking {
+            if abs(nextX - other.x) < 11 { return true }
+        }
+        return false
+    }
+
+    private func surfaceY(at x: CGFloat) -> CGFloat {
+        if x >= gapStart && x <= gapEnd {
+            return gapBridged ? groundY - 1 : bounds.height + 20
+        }
+        if x >= wallStart && x <= wallEnd && !wallBashed {
+            return groundY - 11
+        }
+        if trenchDug && x >= gapStart - 75 && x <= gapStart - 52 {
+            return bounds.height + 14
+        }
+        return groundY
+    }
+
+    private func runDemoAI() {
+        if !demoAssignedBuilder,
+           let index = walkers.indices.first(where: { walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > gapStart - 30 }) {
+            apply(.builder, to: index)
+            demoAssignedBuilder = true
+        }
+        if gapBridged && !demoAssignedBasher,
+           let index = walkers.indices.first(where: { walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > wallStart - 28 }) {
+            apply(.basher, to: index)
+            demoAssignedBasher = true
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard gameMode == .interactive else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard let index = walkers.indices
+            .filter({ walkers[$0].state != .saved && walkers[$0].state != .dead })
+            .min(by: { abs(walkers[$0].x - point.x) < abs(walkers[$1].x - point.x) }),
+              abs(walkers[index].x + spriteWidth / 2 - point.x) < 22 else { return }
+        apply(selectedSkill, to: index)
+    }
+
+    private func apply(_ skill: Skill, to index: Int) {
+        guard walkers.indices.contains(index) else { return }
+        switch skill {
+        case .climber:
+            walkers[index].isClimber = true
+        case .floater:
+            walkers[index].isFloater = true
+        case .bomber:
+            walkers[index].state = .bombing
+            walkers[index].stateTime = 0
+        case .blocker:
+            walkers[index].state = .blocking
+        case .builder:
+            walkers[index].state = .building
+            walkers[index].stateTime = 0
+        case .basher:
+            walkers[index].state = .bashing
+            walkers[index].stateTime = 0
+        case .miner:
+            walkers[index].state = .mining
+            walkers[index].stateTime = 0
+        case .digger:
+            walkers[index].state = .digging
+            walkers[index].stateTime = 0
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-
-        // Original Lemmings commonly used a very dark blue field rather than
-        // neutral black behind the level graphics.
         NSColor(calibratedRed: 0.005, green: 0.01, blue: 0.11, alpha: 1).setFill()
         dirtyRect.fill()
 
-        drawGround()
+        drawTerrain()
         drawEntrance()
+        drawHUD()
 
-        for walker in walkers where walker.state != .waiting && walker.state != .saved {
+        for walker in walkers where walker.state != .saved && walker.state != .dead {
             drawWalker(walker)
         }
-
-        // Draw the exit last. Its stonework masks an entering lemming, making
-        // it visibly pass through the doorway rather than walk behind it.
         drawExit()
     }
 
-    private func drawGround() {
+    private func drawHUD() {
+        let text = "OUT \(spawnedCount - savedCount - deadCount)  IN \(savedCount)  RR \(releaseRate)\(paused ? "  PAUSE" : "")\(gameMode == .demo ? "  DEMO" : "")"
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 6.5, weight: .medium),
+            .foregroundColor: NSColor(calibratedWhite: 0.78, alpha: 1)
+        ]
+        text.draw(at: NSPoint(x: 84, y: 1), withAttributes: attrs)
+    }
+
+    private func drawTerrain() {
         let dirtDark = NSColor(calibratedRed: 0.29, green: 0.10, blue: 0.04, alpha: 1)
         let dirt = NSColor(calibratedRed: 0.58, green: 0.24, blue: 0.06, alpha: 1)
-        let dirtLight = NSColor(calibratedRed: 0.84, green: 0.43, blue: 0.08, alpha: 1)
         let grass = NSColor(calibratedRed: 0.10, green: 0.64, blue: 0.10, alpha: 1)
-        let grassLight = NSColor(calibratedRed: 0.25, green: 0.86, blue: 0.14, alpha: 1)
 
-        dirtDark.setFill()
-        NSRect(x: 0, y: groundY, width: bounds.width, height: 4).fill()
-
-        dirt.setFill()
-        for x in stride(from: CGFloat(0), through: bounds.width, by: 7) {
-            NSRect(x: x, y: groundY + 1, width: 4, height: 2).fill()
+        for x in stride(from: CGFloat(0), through: bounds.width, by: 2) {
+            let top = surfaceY(at: x)
+            if top <= bounds.height {
+                dirtDark.setFill()
+                NSRect(x: x, y: top, width: 2, height: max(0, bounds.height - top)).fill()
+                dirt.setFill()
+                NSRect(x: x, y: top + 1, width: 1, height: max(0, bounds.height - top - 1)).fill()
+                grass.setFill()
+                NSRect(x: x, y: top - 1, width: 2, height: 1).fill()
+            }
         }
 
-        dirtLight.setFill()
-        for x in stride(from: CGFloat(3), through: bounds.width, by: 13) {
-            NSRect(x: x, y: groundY + 2, width: 2, height: 1).fill()
-        }
-
-        grass.setFill()
-        NSRect(x: 0, y: groundY - 1, width: bounds.width, height: 2).fill()
-
-        grassLight.setFill()
-        for x in stride(from: CGFloat(1), through: bounds.width, by: 9) {
-            NSRect(x: x, y: groundY - 2, width: 3, height: 1).fill()
+        if gapBridged {
+            let bridge = NSColor(calibratedRed: 0.78, green: 0.52, blue: 0.16, alpha: 1)
+            bridge.setFill()
+            NSRect(x: gapStart - 2, y: groundY - 2, width: gapEnd - gapStart + 4, height: 2).fill()
         }
     }
 
     private func drawEntrance() {
-        let woodDark = NSColor(calibratedRed: 0.30, green: 0.08, blue: 0.04, alpha: 1)
-        let wood = NSColor(calibratedRed: 0.62, green: 0.18, blue: 0.07, alpha: 1)
-        let rim = NSColor(calibratedRed: 0.88, green: 0.76, blue: 0.58, alpha: 1)
-        let hatchBlue = NSColor(calibratedRed: 0.16, green: 0.20, blue: 0.62, alpha: 1)
-        let hatchLight = NSColor(calibratedRed: 0.30, green: 0.40, blue: 0.86, alpha: 1)
-
         let x = entranceX
         let y: CGFloat = 1
-
-        // Brown suspension / side posts and pale metallic trim, matching the
-        // recognisable dirt-set hatch silhouette.
-        woodDark.setFill()
-        NSRect(x: x, y: y + 3, width: 4, height: 8).fill()
-        NSRect(x: x + 24, y: y + 3, width: 4, height: 8).fill()
-
+        let wood = NSColor(calibratedRed: 0.58, green: 0.18, blue: 0.07, alpha: 1)
+        let rim = NSColor(calibratedRed: 0.87, green: 0.75, blue: 0.56, alpha: 1)
+        let blue = NSColor(calibratedRed: 0.18, green: 0.24, blue: 0.68, alpha: 1)
         wood.setFill()
-        NSRect(x: x + 1, y: y + 4, width: 2, height: 7).fill()
-        NSRect(x: x + 25, y: y + 4, width: 2, height: 7).fill()
-
+        NSRect(x: x, y: y + 3, width: 5, height: 10).fill()
+        NSRect(x: x + 31, y: y + 3, width: 5, height: 10).fill()
         rim.setFill()
-        NSRect(x: x + 4, y: y + 2, width: 20, height: 2).fill()
-        NSRect(x: x + 5, y: y + 4, width: 18, height: 1).fill()
-
-        hatchBlue.setFill()
-        NSRect(x: x + 6, y: y + 4, width: 16, height: 3).fill()
-        hatchLight.setFill()
-        NSRect(x: x + 8, y: y + 4, width: 12, height: 1).fill()
-
-        // The classic entrance opens before the first lemming is released.
+        NSRect(x: x + 5, y: y + 2, width: 26, height: 2).fill()
+        blue.setFill()
+        NSRect(x: x + 7, y: y + 4, width: 22, height: 4).fill()
         let open = CGFloat(max(0, min(1, (elapsed - 0.25) / 0.45)))
-        let center = x + 14
-        let flapY = y + 7
-
-        let left = NSBezierPath()
-        left.move(to: NSPoint(x: center - 8, y: flapY))
-        left.line(to: NSPoint(x: center, y: flapY))
-        left.line(to: NSPoint(x: center - 1 - 3 * open, y: flapY + 1 + 5 * open))
-        left.line(to: NSPoint(x: center - 8, y: flapY + 1))
-        left.close()
-        hatchBlue.setFill()
-        left.fill()
-
-        let right = NSBezierPath()
-        right.move(to: NSPoint(x: center, y: flapY))
-        right.line(to: NSPoint(x: center + 8, y: flapY))
-        right.line(to: NSPoint(x: center + 8, y: flapY + 1))
-        right.line(to: NSPoint(x: center + 1 + 3 * open, y: flapY + 1 + 5 * open))
-        right.close()
-        right.fill()
+        let center = x + 18
+        NSColor.black.setFill()
+        NSRect(x: center - 3 * open, y: y + 7, width: 6 * open, height: 5).fill()
     }
 
     private func drawExit() {
         let x = exitX
-        let baseY = groundY
+        let base = groundY
         let stoneDark = NSColor(calibratedRed: 0.22, green: 0.24, blue: 0.28, alpha: 1)
-        let stone = NSColor(calibratedRed: 0.43, green: 0.45, blue: 0.49, alpha: 1)
-        let stoneLight = NSColor(calibratedRed: 0.67, green: 0.66, blue: 0.62, alpha: 1)
-        let doorway = NSColor(calibratedRed: 0.05, green: 0.07, blue: 0.26, alpha: 1)
-        let blueGlow = NSColor(calibratedRed: 0.17, green: 0.28, blue: 0.66, alpha: 1)
-        let flameRed = NSColor(calibratedRed: 0.95, green: 0.12, blue: 0.02, alpha: 1)
-        let flameYellow = NSColor(calibratedRed: 1.0, green: 0.74, blue: 0.05, alpha: 1)
+        let stone = NSColor(calibratedRed: 0.48, green: 0.49, blue: 0.50, alpha: 1)
+        let doorway = NSColor(calibratedRed: 0.04, green: 0.06, blue: 0.24, alpha: 1)
+        let flame = NSColor(calibratedRed: 1.0, green: 0.52, blue: 0.04, alpha: 1)
 
-        // Dark mouth of the exit.
         doorway.setFill()
-        NSRect(x: x + 10, y: baseY - 10, width: 9, height: 10).fill()
-        blueGlow.setFill()
-        NSRect(x: x + 12, y: baseY - 9, width: 5, height: 2).fill()
-
-        // Chunky grey stone arch, based on the dirt-set exit seen in the
-        // original game. The doorway stays open at ground level.
+        NSRect(x: x + 13, y: base - 15, width: 12, height: 15).fill()
         stoneDark.setFill()
-        NSRect(x: x + 7, y: baseY - 12, width: 15, height: 3).fill()
-        NSRect(x: x + 6, y: baseY - 9, width: 4, height: 9).fill()
-        NSRect(x: x + 19, y: baseY - 9, width: 4, height: 9).fill()
-
+        NSRect(x: x + 9, y: base - 19, width: 20, height: 4).fill()
+        NSRect(x: x + 7, y: base - 15, width: 6, height: 15).fill()
+        NSRect(x: x + 25, y: base - 15, width: 6, height: 15).fill()
         stone.setFill()
-        NSRect(x: x + 9, y: baseY - 14, width: 11, height: 3).fill()
-        NSRect(x: x + 7, y: baseY - 11, width: 4, height: 3).fill()
-        NSRect(x: x + 18, y: baseY - 11, width: 4, height: 3).fill()
-        NSRect(x: x + 7, y: baseY - 6, width: 3, height: 6).fill()
-        NSRect(x: x + 20, y: baseY - 6, width: 3, height: 6).fill()
-
-        stoneLight.setFill()
-        NSRect(x: x + 11, y: baseY - 13, width: 7, height: 1).fill()
-        NSRect(x: x + 8, y: baseY - 9, width: 2, height: 2).fill()
-        NSRect(x: x + 20, y: baseY - 9, width: 2, height: 2).fill()
-
-        // Twin flaming torches.
-        stoneLight.setFill()
-        NSRect(x: x + 2, y: baseY - 10, width: 1, height: 8).fill()
-        NSRect(x: x + 27, y: baseY - 10, width: 1, height: 8).fill()
-
-        let flicker = Int(elapsed * 9) % 2 == 0
-        flameRed.setFill()
-        NSRect(x: x + 1, y: baseY - 14, width: 3, height: 4).fill()
-        NSRect(x: x + 26, y: baseY - 14, width: 3, height: 4).fill()
-        flameYellow.setFill()
-        NSRect(x: x + (flicker ? 2 : 1), y: baseY - 15, width: 1, height: 3).fill()
-        NSRect(x: x + (flicker ? 27 : 28), y: baseY - 15, width: 1, height: 3).fill()
+        NSRect(x: x + 12, y: base - 21, width: 14, height: 3).fill()
+        NSRect(x: x + 9, y: base - 17, width: 5, height: 4).fill()
+        NSRect(x: x + 24, y: base - 17, width: 5, height: 4).fill()
+        flame.setFill()
+        NSRect(x: x + 3, y: base - 16, width: 3, height: 5).fill()
+        NSRect(x: x + 32, y: base - 16, width: 3, height: 5).fill()
     }
 
     private func drawWalker(_ walker: Walker) {
-        let frameIndex: Int
-        switch walker.state {
-        case .walking, .entering:
-            // Tie animation to distance travelled so every lemming has the
-            // same gait and speed while remaining naturally out of phase.
-            frameIndex = Int(floor(walker.walkDistance / 2.4)) % walkerFrames.count
-        case .falling:
-            frameIndex = 1
-        default:
-            return
-        }
-
+        let frameIndex = min(7, Int(floor(walker.walkDistance / 2.3)) % 8)
         let frame = walkerFrames[frameIndex]
-        let hair = NSColor(calibratedRed: 0.03, green: 0.82, blue: 0.10, alpha: 1)
-        let skin = NSColor(calibratedRed: 0.98, green: 0.82, blue: 0.81, alpha: 1)
-        let blue = NSColor(calibratedRed: 0.16, green: 0.22, blue: 0.84, alpha: 1)
+        let originX = floor(walker.x)
+        let originY = floor(walker.y)
 
-        for (rowIndex, row) in frame.enumerated() {
-            for (columnIndex, symbol) in row.enumerated() {
+        let hair = NSColor(calibratedRed: 0.18, green: 0.98, blue: 0.18, alpha: 1)
+        let skin = NSColor(calibratedRed: 0.98, green: 0.76, blue: 0.58, alpha: 1)
+        let blue = NSColor(calibratedRed: 0.10, green: 0.35, blue: 0.98, alpha: 1)
+
+        for (row, line) in frame.enumerated() {
+            for (column, character) in line.enumerated() {
                 let color: NSColor?
-                switch symbol {
+                switch character {
                 case "G": color = hair
                 case "S": color = skin
                 case "B": color = blue
                 default: color = nil
                 }
-
                 guard let color else { continue }
                 color.setFill()
+                let sourceX = walker.direction > 0 ? column : 7 - column
                 NSRect(
-                    x: floor(walker.x) + CGFloat(columnIndex) * pixel,
-                    y: floor(walker.y) + CGFloat(rowIndex) * pixel,
-                    width: pixel,
-                    height: pixel
+                    x: originX + CGFloat(sourceX) * pixel,
+                    y: originY + CGFloat(row) * pixel,
+                    width: pixel + 0.2,
+                    height: pixel + 0.2
                 ).fill()
             }
+        }
+
+        if walker.state == .bombing {
+            let remaining = max(0, 1.6 - walker.stateTime)
+            let text = String(Int(ceil(remaining)))
+            text.draw(at: NSPoint(x: walker.x + 2, y: max(0, walker.y - 7)), withAttributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold),
+                .foregroundColor: NSColor.white
+            ])
         }
     }
 }
