@@ -15,6 +15,10 @@ private extension NSTouchBarItem.Identifier {
     static let placeholder = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.placeholder")
 }
 
+private final class TouchBarHostView: NSView {
+    override var acceptsFirstResponder: Bool { true }
+}
+
 final class MainViewController: NSViewController, NSTouchBarDelegate {
     private enum Mode {
         case home
@@ -25,7 +29,7 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
     private var mode: Mode = .home
 
     override func loadView() {
-        let root = NSView()
+        let root = TouchBarHostView()
         root.wantsLayer = true
 
         let title = NSTextField(labelWithString: "TouchBarpalooza")
@@ -54,7 +58,6 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        view.window?.makeFirstResponder(view)
         installTouchBar()
     }
 
@@ -65,11 +68,15 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
     private func installTouchBar() {
         let bar = buildTouchBar()
 
-        // Keep the controller's bar for normal responder-chain discovery,
-        // and also attach it directly to the key window. The latter is more
-        // reliable for our programmatically-created window on modern macOS.
+        // Put the same bar on every responder that can plausibly win the
+        // Touch Bar lookup. Most importantly, the root view explicitly
+        // accepts first-responder status and owns this bar directly.
         touchBar = bar
+        view.touchBar = bar
         view.window?.touchBar = bar
+        view.window?.makeFirstResponder(view)
+
+        print("TouchBarpalooza: first responder is host view = \(view.window?.firstResponder === view)")
     }
 
     private func buildTouchBar() -> NSTouchBar {
