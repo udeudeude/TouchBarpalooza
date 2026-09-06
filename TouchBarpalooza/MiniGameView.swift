@@ -29,8 +29,34 @@ private final class GameKeyMonitor {
     }
 }
 
-private final class LifeGridButton: NSButton {
+private final class HoldActionButton: NSButton {
+    var pressHandler: (() -> Void)?
+    var releaseHandler: (() -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        pressHandler?()
+        super.mouseDown(with: event)
+        releaseHandler?()
+    }
+}
+
+private final class LifeTouchCanvas: NSView {
     var pointHandler: ((CGPoint, Bool) -> Void)?
+    var endHandler: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        allowedTouchTypes = [.direct]
+        wantsRestingTouches = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        allowedTouchTypes = [.direct]
+        wantsRestingTouches = true
+    }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -40,6 +66,34 @@ private final class LifeGridButton: NSButton {
 
     override func mouseDragged(with event: NSEvent) {
         pointHandler?(convert(event.locationInWindow, from: nil), true)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        endHandler?()
+    }
+
+    override func touchesBegan(with event: NSEvent) {
+        sendTouches(event, phase: .began, dragging: false)
+    }
+
+    override func touchesMoved(with event: NSEvent) {
+        sendTouches(event, phase: .moved, dragging: true)
+    }
+
+    override func touchesEnded(with event: NSEvent) {
+        sendTouches(event, phase: .ended, dragging: true)
+        endHandler?()
+    }
+
+    override func touchesCancelled(with event: NSEvent) {
+        endHandler?()
+    }
+
+    private func sendTouches(_ event: NSEvent, phase: NSTouch.Phase, dragging: Bool) {
+        for touch in event.touches(matching: phase, in: self) {
+            let p = touch.normalizedPosition
+            pointHandler?(CGPoint(x: p.x * bounds.width, y: p.y * bounds.height), dragging)
+        }
     }
 }
 
@@ -91,7 +145,7 @@ final class MiniGameView: NSView {
     private var lifeRunning = false
     private var lifePaintValue: Bool?
     private let lifeControlsWidth: CGFloat = 154
-    private var lifeGridButton: LifeGridButton?
+    private var lifeCanvas: LifeTouchCanvas?
 
     override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -128,7 +182,6 @@ final class MiniGameView: NSView {
         let button = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
         button.font = .systemFont(ofSize: 10)
         button.frame = NSRect(x: 2, y: 2, width: 29, height: 26)
-        button.autoresizingMask = []
         button.toolTip = "Bring TouchBarpalooza to the front for keyboard controls"
         addSubview(button)
     }
@@ -140,10 +193,10 @@ final class MiniGameView: NSView {
         guard down, game == .snake else { return }
 
         switch event.keyCode {
-        case 123, 0: setSnakeDirection(x: -1, y: 0) // left / A
-        case 124, 2: setSnakeDirection(x: 1, y: 0)  // right / D
-        case 125, 1: setSnakeDirection(x: 0, y: -1) // down / S
-        case 126, 13: setSnakeDirection(x: 0, y: 1) // up / W
+        case 123, 0: setSnakeDirection(x: -1, y: 0)
+        case 124, 2: setSnakeDirection(x: 1, y: 0)
+        case 125, 1: setSnakeDirection(x: 0, y: -1)
+        case 126, 13: setSnakeDirection(x: 0, y: 1)
         default: break
         }
     }
@@ -354,13 +407,12 @@ final class MiniGameView: NSView {
             addSubview(button)
         }
 
-        let grid = LifeGridButton(frame: NSRect(x: lifeControlsWidth, y: 0, width: max(1, bounds.width - lifeControlsWidth), height: bounds.height))
-        grid.title = ""
-        grid.isBordered = false
-        grid.autoresizingMask = [.width, .height]
-        grid.pointHandler = { [weak self] point, dragging in self?.paintLife(point, dragging: dragging) }
-        addSubview(grid)
-        lifeGridButton = grid
+        let canvas = LifeTouchCanvas(frame: NSRect(x: lifeControlsWidth, y: 0, width: max(1, bounds.width - lifeControlsWidth), height: bounds.height))
+        canvas.autoresizingMask = [.width, .height]
+        canvas.pointHandler = { [weak self] point, dragging in self?.paintLife(point, dragging: dragging) }
+        canvas.endHandler = { [weak self] in self?.lifePaintValue = nil }
+        addSubview(canvas)
+        lifeCanvas = canvas
     }
 
     @objc private func toggleLife(_ sender: NSButton) {
@@ -384,14 +436,13 @@ final class MiniGameView: NSView {
     }
 
     private func paintLife(_ point: CGPoint, dragging: Bool) {
-        let width = max(1, (lifeGridButton?.bounds.width ?? 1))
-        let height = max(1, (lifeGridButton?.bounds.height ?? 1))
+        let width = max(1, lifeCanvas?.bounds.width ?? 1)
+        let height = max(1, lifeCanvas?.bounds.height ?? 1)
         let x = max(0, min(lifeColumns - 1, Int((point.x / width) * CGFloat(lifeColumns))))
         let y = max(0, min(lifeRows - 1, Int((point.y / height) * CGFloat(lifeRows))))
-        if !dragging || lifePaintValue == nil { lifePaintValue = !life[x][y] }
+        if lifePaintValue == nil { lifePaintValue = !life[x][y] }
         life[x][y] = lifePaintValue ?? true
         needsDisplay = true
-        if !dragging { lifePaintValue = nil }
     }
 
     private func seedLife() {
@@ -535,9 +586,16 @@ final class PitfallHomageView: NSView {
     private var worldX: CGFloat = 0
     private var heroY: CGFloat = 0
     private var verticalVelocity: CGFloat = 0
+    private var touchDirection: CGFloat = 0
     private var score = 2000
+    private var lives = 3
+    private var treasures = 0
     private var timeRemaining: TimeInterval = 20 * 60
     private var collisionCooldown: TimeInterval = 0
+    private var animationTime: TimeInterval = 0
+    private var collectedTreasureScenes = Set<Int>()
+
+    private let heroScreenX: CGFloat = 130
 
     override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -546,9 +604,11 @@ final class PitfallHomageView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         keyMonitor.handler = { [weak self] event, down in
-            if down { self?.pressed.insert(event.keyCode) } else { self?.pressed.remove(event.keyCode) }
+            guard let self = self else { return }
+            if down { self.pressed.insert(event.keyCode) } else { self.pressed.remove(event.keyCode) }
+            if down && (event.keyCode == 126 || event.keyCode == 13 || event.keyCode == 49) { self.jump() }
         }
-        addFocusButton()
+        addTouchControls()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in self?.tick() }
         timer = t
         RunLoop.main.add(t, forMode: .common)
@@ -557,38 +617,92 @@ final class PitfallHomageView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit { timer?.invalidate() }
 
-    private func addFocusButton() {
-        let b = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        b.font = .systemFont(ofSize: 10); b.frame = NSRect(x: 2, y: 2, width: 29, height: 26); addSubview(b)
+    private func addTouchControls() {
+        let left = HoldActionButton(title: "◀", target: nil, action: nil)
+        left.frame = NSRect(x: 2, y: 2, width: 25, height: 26)
+        left.pressHandler = { [weak self] in self?.touchDirection = -1 }
+        left.releaseHandler = { [weak self] in if self?.touchDirection == -1 { self?.touchDirection = 0 } }
+        addSubview(left)
+
+        let jumpButton = HoldActionButton(title: "JUMP", target: nil, action: nil)
+        jumpButton.font = .systemFont(ofSize: 7)
+        jumpButton.frame = NSRect(x: 29, y: 2, width: 42, height: 26)
+        jumpButton.pressHandler = { [weak self] in self?.jump() }
+        addSubview(jumpButton)
+
+        let right = HoldActionButton(title: "▶", target: nil, action: nil)
+        right.frame = NSRect(x: 73, y: 2, width: 25, height: 26)
+        right.pressHandler = { [weak self] in self?.touchDirection = 1 }
+        right.releaseHandler = { [weak self] in if self?.touchDirection == 1 { self?.touchDirection = 0 } }
+        addSubview(right)
+
+        let keyboard = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
+        keyboard.frame = NSRect(x: 100, y: 2, width: 28, height: 26)
+        addSubview(keyboard)
     }
+
     @objc private func focusKeyboard() { focusTouchBarpalooza() }
+
+    private func jump() {
+        if heroY <= 0.1 { verticalVelocity = 108 }
+    }
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.1, now - lastTick); lastTick = now
+        let dt = min(0.1, now - lastTick)
+        lastTick = now
+        animationTime += dt
         timeRemaining = max(0, timeRemaining - dt)
         collisionCooldown = max(0, collisionCooldown - dt)
-        let speed: CGFloat = 78
-        if pressed.contains(123) || pressed.contains(0) { worldX -= speed * CGFloat(dt) }
-        if pressed.contains(124) || pressed.contains(2) { worldX += speed * CGFloat(dt); score += Int(8 * dt) }
-        if (pressed.contains(126) || pressed.contains(13) || pressed.contains(49)) && heroY <= 0.1 { verticalVelocity = 105 }
+
+        var direction = touchDirection
+        if pressed.contains(123) || pressed.contains(0) { direction = -1 }
+        if pressed.contains(124) || pressed.contains(2) { direction = 1 }
+        worldX += direction * 76 * CGFloat(dt)
+
         verticalVelocity -= 245 * CGFloat(dt)
         heroY = max(0, heroY + verticalVelocity * CGFloat(dt))
         if heroY == 0 && verticalVelocity < 0 { verticalVelocity = 0 }
-        detectHazard()
+
+        detectSceneInteraction()
         needsDisplay = true
     }
 
-    private func detectHazard() {
-        guard collisionCooldown <= 0, heroY < 4 else { return }
-        let heroWorld = worldX + 90
+    private func detectSceneInteraction() {
+        guard collisionCooldown <= 0 else { return }
+        let heroWorld = worldX + heroScreenX
         let segment = Int(floor(heroWorld / 105))
         let local = heroWorld - CGFloat(segment) * 105
-        let pattern = abs(segment) % 4
-        if pattern == 0 && local > 43 && local < 60 {
-            score = max(0, score - 75); collisionCooldown = 0.6
-        } else if pattern == 1 && local > 34 && local < 74 {
-            score = max(0, score - 250); collisionCooldown = 0.8
+        let pattern = ((segment % 4) + 4) % 4
+
+        if pattern == 0 && heroY < 4 && local > 40 && local < 64 {
+            score = max(0, score - 12)
+            collisionCooldown = 0.12
+        } else if pattern == 1 && heroY < 4 && local > 34 && local < 76 {
+            loseLife()
+        } else if pattern == 2 && heroY < 4 && local > 47 && local < 69 {
+            loseLife()
+        } else if pattern == 3 && local > 48 && local < 67 && !collectedTreasureScenes.contains(segment) {
+            collectedTreasureScenes.insert(segment)
+            treasures += 1
+            score += 2000
+            collisionCooldown = 0.35
+        }
+    }
+
+    private func loseLife() {
+        lives -= 1
+        collisionCooldown = 0.8
+        heroY = 0
+        verticalVelocity = 0
+        worldX -= 28
+        if lives <= 0 {
+            lives = 3
+            score = 2000
+            treasures = 0
+            timeRemaining = 20 * 60
+            worldX = 0
+            collectedTreasureScenes.removeAll()
         }
     }
 
@@ -604,49 +718,54 @@ final class PitfallHomageView: NSView {
         let firstSegment = Int(floor(worldX / 105)) - 1
         for offset in 0..<10 {
             let segment = firstSegment + offset
-            let x = CGFloat(segment) * 105 - worldX + 90
+            let x = CGFloat(segment) * 105 - worldX + heroScreenX
             drawPitfallScene(segment: segment, x: x)
         }
 
-        drawPitfallHarry(x: 90, y: 7 + heroY)
+        drawPitfallHarry(x: heroScreenX, y: 7 + heroY)
 
         let minutes = Int(timeRemaining) / 60
         let seconds = Int(timeRemaining) % 60
-        let hud = String(format: "%05d  %02d:%02d", score, minutes, seconds)
-        hud.draw(at: NSPoint(x: 35, y: 22), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6.5, weight: .bold), .foregroundColor: NSColor.white])
+        let hud = String(format: "%05d  L%d  T%d  %02d:%02d", score, lives, treasures, minutes, seconds)
+        hud.draw(at: NSPoint(x: 132, y: 22), withAttributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 6.2, weight: .bold),
+            .foregroundColor: NSColor.white
+        ])
     }
 
     private func drawPitfallScene(segment: Int, x: CGFloat) {
-        let pattern = abs(segment) % 4
+        let pattern = ((segment % 4) + 4) % 4
         let trunk = NSColor(calibratedRed: 0.38, green: 0.22, blue: 0.03, alpha: 1)
-        trunk.setFill(); NSRect(x: x + 8, y: 7, width: 4, height: 16).fill()
-        NSRect(x: x + 92, y: 7, width: 4, height: 16).fill()
+        trunk.setFill(); NSRect(x: x + 8, y: 7, width: 4, height: 16).fill(); NSRect(x: x + 92, y: 7, width: 4, height: 16).fill()
 
         if pattern == 0 {
+            let roll = CGFloat(animationTime.truncatingRemainder(dividingBy: 1.0)) * 18
             let log = NSColor(calibratedRed: 0.48, green: 0.25, blue: 0.03, alpha: 1)
-            log.setFill(); NSRect(x: x + 43, y: 7, width: 18, height: 4).fill()
+            log.setFill(); NSRect(x: x + 55 - roll, y: 7, width: 18, height: 4).fill()
             NSColor(calibratedRed: 0.25, green: 0.12, blue: 0.01, alpha: 1).setFill()
-            NSRect(x: x + 47, y: 8, width: 2, height: 2).fill(); NSRect(x: x + 55, y: 8, width: 2, height: 2).fill()
+            NSRect(x: x + 59 - roll, y: 8, width: 2, height: 2).fill(); NSRect(x: x + 67 - roll, y: 8, width: 2, height: 2).fill()
         } else if pattern == 1 {
             NSColor(calibratedRed: 0.13, green: 0.45, blue: 0.66, alpha: 1).setFill()
             NSRect(x: x + 34, y: 4, width: 42, height: 4).fill()
             let gator = NSColor(calibratedRed: 0.03, green: 0.27, blue: 0.06, alpha: 1)
             gator.setFill()
+            let jawsOpen = sin(animationTime * 5) > 0
             for gx in stride(from: x + 38, through: x + 68, by: 14) {
-                NSRect(x: gx, y: 6, width: 10, height: 2).fill(); NSRect(x: gx + 2, y: 8, width: 5, height: 1).fill()
+                NSRect(x: gx, y: 6, width: 10, height: 2).fill()
+                NSRect(x: gx + 2, y: jawsOpen ? 9 : 8, width: 5, height: 1).fill()
             }
-            // The original vine descends diagonally from the canopy.
-            let rope = NSBezierPath(); rope.move(to: NSPoint(x: x + 55, y: 23)); rope.line(to: NSPoint(x: x + 47, y: 11));
+            let rope = NSBezierPath(); rope.move(to: NSPoint(x: x + 55, y: 23)); rope.line(to: NSPoint(x: x + 47 + sin(animationTime * 2) * 5, y: 11))
             NSColor(calibratedRed: 0.42, green: 0.27, blue: 0.05, alpha: 1).setStroke(); rope.lineWidth = 1; rope.stroke()
         } else if pattern == 2 {
             NSColor.black.setFill(); NSRect(x: x + 47, y: 3, width: 22, height: 6).fill()
-            // White scorpion in the underground passage, echoing the 2600 sprite.
-            NSColor.white.setFill();
-            NSRect(x: x + 51, y: 1, width: 8, height: 2).fill(); NSRect(x: x + 58, y: 2, width: 4, height: 1).fill(); NSRect(x: x + 49, y: 2, width: 2, height: 1).fill()
-        } else {
-            // Small treasure bar.
+            NSColor(calibratedWhite: 0.92, alpha: 1).setFill()
+            let sx = x + 52 + sin(animationTime * 2.5) * 5
+            NSRect(x: sx, y: 1, width: 8, height: 2).fill(); NSRect(x: sx + 7, y: 2, width: 4, height: 1).fill(); NSRect(x: sx - 2, y: 2, width: 2, height: 1).fill()
+        } else if !collectedTreasureScenes.contains(segment) {
             NSColor(calibratedRed: 0.95, green: 0.75, blue: 0.12, alpha: 1).setFill()
             NSRect(x: x + 52, y: 9, width: 10, height: 3).fill()
+            NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.35, alpha: 1).setFill()
+            NSRect(x: x + 54, y: 12, width: 6, height: 1).fill()
         }
     }
 
@@ -664,8 +783,9 @@ final class ETHomageView: NSView {
     private var pressed = Set<UInt16>()
     private var timer: Timer?
     private var lastTick = ProcessInfo.processInfo.systemUptime
-    private var playerX: CGFloat = 110
-    private var pieces = [CGPoint(x: 235, y: 14), CGPoint(x: 430, y: 12), CGPoint(x: 610, y: 16)]
+    private var playerX: CGFloat = 150
+    private var touchDirection: CGFloat = 0
+    private var pieces = [CGPoint(x: 245, y: 13), CGPoint(x: 430, y: 12), CGPoint(x: 610, y: 15)]
     private var collected = Set<Int>()
     private var score = 8975
 
@@ -676,64 +796,116 @@ final class ETHomageView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         keyMonitor.handler = { [weak self] event, down in
-            if down { self?.pressed.insert(event.keyCode) } else { self?.pressed.remove(event.keyCode) }
-            if down && event.keyCode == 49 { self?.collectNearby() }
+            guard let self = self else { return }
+            if down { self.pressed.insert(event.keyCode) } else { self.pressed.remove(event.keyCode) }
+            if down && event.keyCode == 49 { self.collectNearby() }
         }
-        let b = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        b.font = .systemFont(ofSize: 10); b.frame = NSRect(x: 2, y: 2, width: 29, height: 26); addSubview(b)
+        addTouchControls()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in self?.tick() }
         timer = t; RunLoop.main.add(t, forMode: .common)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit { timer?.invalidate() }
+
+    private func addTouchControls() {
+        let left = HoldActionButton(title: "◀", target: nil, action: nil)
+        left.frame = NSRect(x: 2, y: 2, width: 25, height: 26)
+        left.pressHandler = { [weak self] in self?.touchDirection = -1 }
+        left.releaseHandler = { [weak self] in if self?.touchDirection == -1 { self?.touchDirection = 0 } }
+        addSubview(left)
+
+        let take = HoldActionButton(title: "TAKE", target: nil, action: nil)
+        take.font = .systemFont(ofSize: 7)
+        take.frame = NSRect(x: 29, y: 2, width: 42, height: 26)
+        take.pressHandler = { [weak self] in self?.collectNearby() }
+        addSubview(take)
+
+        let right = HoldActionButton(title: "▶", target: nil, action: nil)
+        right.frame = NSRect(x: 73, y: 2, width: 25, height: 26)
+        right.pressHandler = { [weak self] in self?.touchDirection = 1 }
+        right.releaseHandler = { [weak self] in if self?.touchDirection == 1 { self?.touchDirection = 0 } }
+        addSubview(right)
+
+        let keyboard = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
+        keyboard.frame = NSRect(x: 100, y: 2, width: 28, height: 26)
+        addSubview(keyboard)
+    }
+
     @objc private func focusKeyboard() { focusTouchBarpalooza() }
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
         let dt = min(0.1, now - lastTick); lastTick = now
-        if pressed.contains(123) || pressed.contains(0) { playerX -= 82 * CGFloat(dt) }
-        if pressed.contains(124) || pressed.contains(2) { playerX += 82 * CGFloat(dt) }
-        playerX = max(38, min(bounds.width - 20, playerX))
+        var direction = touchDirection
+        if pressed.contains(123) || pressed.contains(0) { direction = -1 }
+        if pressed.contains(124) || pressed.contains(2) { direction = 1 }
+        playerX += direction * 82 * CGFloat(dt)
+        playerX = max(132, min(bounds.width - 20, playerX))
         needsDisplay = true
     }
 
     private func collectNearby() {
         for index in pieces.indices where !collected.contains(index) {
-            if abs(pieces[index].x - playerX) < 24 { collected.insert(index); score += 25 }
+            if abs(pieces[index].x - playerX) < 24 {
+                collected.insert(index)
+                score += 25
+            }
         }
         needsDisplay = true
     }
 
-    override func mouseDown(with event: NSEvent) { collectNearby() }
-
     override func draw(_ dirtyRect: NSRect) {
-        let field = NSColor(calibratedRed: 0.27, green: 0.43, blue: 0.17, alpha: 1)
+        let field = NSColor(calibratedRed: 0.28, green: 0.45, blue: 0.17, alpha: 1)
         field.setFill(); dirtyRect.fill()
-        NSColor(calibratedRed: 0.55, green: 0.02, blue: 0.43, alpha: 1).setFill(); NSRect(x: 0, y: bounds.height - 3, width: bounds.width, height: 3).fill()
+        NSColor(calibratedRed: 0.60, green: 0.02, blue: 0.46, alpha: 1).setFill(); NSRect(x: 0, y: bounds.height - 3, width: bounds.width, height: 3).fill()
         NSColor(calibratedRed: 0.42, green: 0.63, blue: 0.88, alpha: 1).setFill(); NSRect(x: 0, y: 0, width: bounds.width, height: 4).fill()
 
         let pit = NSColor(calibratedRed: 0.01, green: 0.22, blue: 0.06, alpha: 1)
         pit.setFill()
-        let pits = [CGRect(x: 75, y: 9, width: 60, height: 5), CGRect(x: 315, y: 18, width: 70, height: 5), CGRect(x: 500, y: 8, width: 68, height: 5), CGRect(x: 650, y: 17, width: 45, height: 5)]
-        for r in pits { r.fill() }
+        for r in [CGRect(x: 175, y: 9, width: 58, height: 5), CGRect(x: 335, y: 18, width: 70, height: 5), CGRect(x: 500, y: 8, width: 68, height: 5), CGRect(x: 650, y: 17, width: 45, height: 5)] { r.fill() }
 
         for i in pieces.indices where !collected.contains(i) {
             NSColor(calibratedRed: 0.95, green: 0.78, blue: 0.20, alpha: 1).setFill()
             NSRect(x: pieces[i].x, y: pieces[i].y, width: 5, height: 3).fill()
         }
 
-        // E.T.'s squat pale-green 2600 silhouette.
-        NSColor(calibratedRed: 0.72, green: 0.91, blue: 0.35, alpha: 1).setFill()
-        NSRect(x: playerX + 1, y: 10, width: 8, height: 9).fill(); NSRect(x: playerX + 3, y: 8, width: 4, height: 3).fill(); NSRect(x: playerX, y: 17, width: 10, height: 4).fill()
-        field.setFill(); NSRect(x: playerX + 6, y: 17, width: 4, height: 2).fill()
+        drawET(at: playerX)
 
-        // Human/agent sprite in the warm Atari palette.
-        NSColor(calibratedRed: 0.92, green: 0.55, blue: 0.25, alpha: 1).setFill(); NSRect(x: 185, y: 10, width: 6, height: 9).fill()
-        NSColor(calibratedRed: 0.15, green: 0.24, blue: 0.58, alpha: 1).setFill(); NSRect(x: 185, y: 8, width: 3, height: 4).fill(); NSRect(x: 190, y: 8, width: 3, height: 4).fill()
+        // Elliott/FBI-style human figure from the game's warm striped palette.
+        NSColor(calibratedRed: 0.92, green: 0.55, blue: 0.25, alpha: 1).setFill(); NSRect(x: 285, y: 10, width: 6, height: 9).fill()
+        NSColor(calibratedRed: 0.15, green: 0.24, blue: 0.58, alpha: 1).setFill(); NSRect(x: 285, y: 8, width: 3, height: 4).fill(); NSRect(x: 290, y: 8, width: 3, height: 4).fill()
+        NSColor.black.setFill(); NSRect(x: 286, y: 19, width: 5, height: 2).fill()
 
         let hud = collected.count == pieces.count ? "CALL HOME" : String(format: "%04d  PHONE %d/3", score, collected.count)
-        hud.draw(at: NSPoint(x: 36, y: 1), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold), .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.24, blue: 0.05, alpha: 1)])
+        hud.draw(at: NSPoint(x: 132, y: 1), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold), .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.24, blue: 0.05, alpha: 1)])
+    }
+
+    private func drawET(at x: CGFloat) {
+        // Original approximation of the unmistakable 2600 silhouette: large
+        // horizontal head/snout, tiny eye, narrow neck, low body and splayed
+        // arms/feet. This is drawn from scratch rather than embedding game art.
+        let et = NSColor(calibratedRed: 0.72, green: 0.91, blue: 0.36, alpha: 1)
+        let shadow = NSColor(calibratedRed: 0.20, green: 0.42, blue: 0.10, alpha: 1)
+        et.setFill()
+        NSRect(x: x + 2, y: 18, width: 11, height: 5).fill()   // head
+        NSRect(x: x + 11, y: 17, width: 4, height: 3).fill()   // snout
+        NSRect(x: x + 5, y: 13, width: 4, height: 5).fill()    // neck
+        NSRect(x: x + 3, y: 8, width: 8, height: 6).fill()     // torso
+        NSRect(x: x, y: 10, width: 4, height: 2).fill()        // rear arm
+        NSRect(x: x + 10, y: 9, width: 4, height: 2).fill()    // front arm
+        NSRect(x: x + 3, y: 5, width: 3, height: 4).fill()     // leg
+        NSRect(x: x + 8, y: 5, width: 3, height: 4).fill()     // leg
+        NSRect(x: x + 1, y: 4, width: 5, height: 2).fill()     // foot
+        NSRect(x: x + 8, y: 4, width: 5, height: 2).fill()     // foot
+        shadow.setFill(); NSRect(x: x + 10, y: 20, width: 1.5, height: 1.5).fill()
+        fieldCutout(at: x)
+    }
+
+    private func fieldCutout(at x: CGFloat) {
+        let field = NSColor(calibratedRed: 0.28, green: 0.45, blue: 0.17, alpha: 1)
+        field.setFill()
+        NSRect(x: x + 6, y: 8, width: 2, height: 3).fill()
     }
 }
 
@@ -773,7 +945,6 @@ final class CaveFlyerView: NSView {
     private func spikeAmount(at worldX: CGFloat, top: Bool) -> CGFloat {
         let segmentWidth: CGFloat = 92
         let segment = Int(floor(worldX / segmentWidth))
-        // Two long clear segments out of every seven give the eye and pilot a rest.
         let phase = ((segment % 7) + 7) % 7
         if phase == 0 || phase == 1 { return 0 }
         let local = worldX - CGFloat(segment) * segmentWidth
