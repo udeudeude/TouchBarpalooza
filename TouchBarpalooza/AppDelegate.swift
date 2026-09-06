@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
@@ -6,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        requestKeyboardMonitoringIfNeeded()
+
         let controller = MainViewController()
         self.controller = controller
 
@@ -23,6 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         globalTouchBarController.start()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func requestKeyboardMonitoringIfNeeded() {
+        guard !CGPreflightListenEventAccess() else { return }
+        _ = CGRequestListenEventAccess()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
