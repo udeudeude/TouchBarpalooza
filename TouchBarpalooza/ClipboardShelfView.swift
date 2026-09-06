@@ -1,10 +1,12 @@
 import AppKit
+import ApplicationServices
+import CoreGraphics
 
 final class ClipboardShelfView: NSView {
     private static let defaultsKey = "TouchBarpalooza.ClipboardHistory"
     private static let maximumHistoryCount = 12
 
-    private var history: [String] = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
+    private var history: [String] = UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? []
     private var buttons: [NSButton] = []
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -40,6 +42,7 @@ final class ClipboardShelfView: NSView {
             button.font = .systemFont(ofSize: 9)
             button.lineBreakMode = .byTruncatingTail
             button.autoresizingMask = [.height]
+            button.toolTip = "Paste this clipping"
             buttons.append(button)
             addSubview(button)
         }
@@ -92,7 +95,7 @@ final class ClipboardShelfView: NSView {
             if index < history.count {
                 let normalized = history[index].replacingOccurrences(of: "\n", with: " ↵ ")
                 button.title = normalized.count > 22 ? String(normalized.prefix(21)) + "…" : normalized
-                button.toolTip = history[index]
+                button.toolTip = "Paste: " + history[index]
                 button.isEnabled = true
             } else {
                 button.title = "—"
@@ -104,7 +107,13 @@ final class ClipboardShelfView: NSView {
 
     @objc private func choose(_ sender: NSButton) {
         guard sender.tag < history.count else { return }
+
+        // A Touch Bar press does not normally take keyboard focus away from the
+        // application the user is working in, so remember that process before
+        // changing the pasteboard and send Command-V back to it explicitly.
+        let targetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let chosen = history[sender.tag]
+
         history.remove(at: sender.tag)
         history.insert(chosen, at: 0)
         saveHistory()
@@ -114,5 +123,32 @@ final class ClipboardShelfView: NSView {
         pasteboard.clearContents()
         pasteboard.setString(chosen, forType: .string)
         lastChangeCount = pasteboard.changeCount
+
+        pasteIntoTarget(pid: targetPID)
+    }
+
+    private func pasteIntoTarget(pid: pid_t?) {
+        guard AXIsProcessTrusted() else {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+            guard let source = CGEventSource(stateID: .hidSystemState),
+                  let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else { return }
+
+            down.flags = .maskCommand
+            up.flags = .maskCommand
+
+            if let pid = pid {
+                down.postToPid(pid)
+                up.postToPid(pid)
+            } else {
+                down.post(tap: .cghidEventTap)
+                up.post(tap: .cghidEventTap)
+            }
+        }
     }
 }
