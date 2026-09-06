@@ -71,12 +71,11 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ]
 
         case .lemmings:
-            // Put Home in the escape-key slot so the animation can own the
-            // full normal Touch Bar region. System-modal bars are fussier
-            // about sizing custom items than foreground responder-chain bars.
+            // Home occupies the escape-key slot. Do not mark the animation as
+            // the principal item: principal items are centered by macOS,
+            // which left a large empty region before the walkers.
             bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
             bar.defaultItemIdentifiers = [.touchBarpaloozaCanvas]
-            bar.principalItemIdentifier = .touchBarpaloozaCanvas
 
         case .placeholder:
             bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
