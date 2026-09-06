@@ -1,7 +1,10 @@
 import AppKit
 
 final class ClipboardShelfView: NSView {
-    private var history: [String] = []
+    private static let defaultsKey = "TouchBarpalooza.ClipboardHistory"
+    private static let maximumHistoryCount = 12
+
+    private var history: [String] = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
     private var buttons: [NSButton] = []
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -9,6 +12,7 @@ final class ClipboardShelfView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         buildUI()
+        refreshButtons()
         capturePasteboard()
         startPolling()
     }
@@ -16,6 +20,7 @@ final class ClipboardShelfView: NSView {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         buildUI()
+        refreshButtons()
         capturePasteboard()
         startPolling()
     }
@@ -61,12 +66,20 @@ final class ClipboardShelfView: NSView {
         guard pasteboard.changeCount != lastChangeCount || history.isEmpty else { return }
         lastChangeCount = pasteboard.changeCount
         guard let text = pasteboard.string(forType: .string), !text.isEmpty else { return }
+
         if history.first != text {
             history.removeAll(where: { $0 == text })
             history.insert(text, at: 0)
-            if history.count > 12 { history.removeLast(history.count - 12) }
+            if history.count > Self.maximumHistoryCount {
+                history.removeLast(history.count - Self.maximumHistoryCount)
+            }
+            saveHistory()
         }
         refreshButtons()
+    }
+
+    private func saveHistory() {
+        UserDefaults.standard.set(history, forKey: Self.defaultsKey)
     }
 
     private func refreshButtons() {
@@ -86,9 +99,16 @@ final class ClipboardShelfView: NSView {
 
     @objc private func choose(_ sender: NSButton) {
         guard sender.tag < history.count else { return }
+        let chosen = history[sender.tag]
+
+        history.remove(at: sender.tag)
+        history.insert(chosen, at: 0)
+        saveHistory()
+        refreshButtons()
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(history[sender.tag], forType: .string)
+        pasteboard.setString(chosen, forType: .string)
         lastChangeCount = pasteboard.changeCount
     }
 }
