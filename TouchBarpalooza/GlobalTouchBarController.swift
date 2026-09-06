@@ -71,11 +71,16 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ]
 
         case .lemmings:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .touchBarpaloozaCanvas]
+            // Put Home in the escape-key slot so the animation can own the
+            // full normal Touch Bar region. System-modal bars are fussier
+            // about sizing custom items than foreground responder-chain bars.
+            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
+            bar.defaultItemIdentifiers = [.touchBarpaloozaCanvas]
             bar.principalItemIdentifier = .touchBarpaloozaCanvas
 
         case .placeholder:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .touchBarpaloozaPlaceholder]
+            bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
+            bar.defaultItemIdentifiers = [.touchBarpaloozaPlaceholder]
             bar.principalItemIdentifier = .touchBarpaloozaPlaceholder
         }
 
@@ -117,10 +122,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         case .touchBarpaloozaCanvas:
             let item = NSCustomTouchBarItem(identifier: identifier)
-            let view = LemmingsView(frame: NSRect(x: 0, y: 0, width: 650, height: 30))
-            view.translatesAutoresizingMaskIntoConstraints = false
-            view.widthAnchor.constraint(greaterThanOrEqualToConstant: 650).isActive = true
-            view.heightAnchor.constraint(equalToConstant: 30).isActive = true
+            let view = LemmingsView(frame: NSRect(x: 0, y: 0, width: 700, height: 30))
+            view.autoresizingMask = [.width, .height]
             item.view = view
             return item
 
@@ -129,6 +132,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             let label = NSTextField(labelWithString: placeholderText)
             label.alignment = .center
             label.font = .systemFont(ofSize: 14, weight: .medium)
+            label.frame = NSRect(x: 0, y: 0, width: 500, height: 30)
             item.view = label
             return item
 
