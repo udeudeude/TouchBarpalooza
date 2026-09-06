@@ -20,6 +20,10 @@ private extension NSTouchBarItem.Identifier {
     static let snake = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.snake")
     static let breakout = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.breakout")
     static let life = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.life")
+    static let pitfall = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.pitfall")
+    static let et = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.et")
+    static let caveFlyer = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.caveflyer")
+    static let adventure = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.adventure")
 
     static let content = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.content")
 }
@@ -38,6 +42,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case snake
         case breakout
         case life
+        case pitfall
+        case et
+        case caveFlyer
+        case adventure
         case kitt
         case tokiPona
     }
@@ -106,9 +114,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         case .gamesMenu:
             bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
-            bar.defaultItemIdentifiers = [.pong, .snake, .breakout, .life]
+            bar.defaultItemIdentifiers = [.pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure]
 
-        case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life, .kitt, .tokiPona:
+        case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life, .pitfall, .et, .caveFlyer, .adventure, .kitt, .tokiPona:
             bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaHome
             bar.defaultItemIdentifiers = [.content]
         }
@@ -133,7 +141,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .touchBarpaloozaClipboard:
             return buttonItem(identifier: identifier, title: "Clipboard", action: #selector(showClipboard))
         case .touchBarpaloozaAudio:
-            return buttonItem(identifier: identifier, title: "Audio", action: #selector(showAudio))
+            return buttonItem(identifier: identifier, title: "Spectrum", action: #selector(showAudio))
         case .touchBarpaloozaMIDI:
             return buttonItem(identifier: identifier, title: "MIDI", action: #selector(showMIDI))
         case .touchBarpaloozaGames:
@@ -158,6 +166,14 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             return buttonItem(identifier: identifier, title: "Breakout", action: #selector(showBreakout))
         case .life:
             return buttonItem(identifier: identifier, title: "Life", action: #selector(showLife))
+        case .pitfall:
+            return buttonItem(identifier: identifier, title: "Pitfall", action: #selector(showPitfall))
+        case .et:
+            return buttonItem(identifier: identifier, title: "E.T.", action: #selector(showET))
+        case .caveFlyer:
+            return buttonItem(identifier: identifier, title: "Cave", action: #selector(showCaveFlyer))
+        case .adventure:
+            return buttonItem(identifier: identifier, title: "Adventure", action: #selector(showAdventure))
 
         case .content:
             return contentItem(identifier: identifier)
@@ -195,6 +211,14 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             view = MiniGameView(frame: frame, game: .breakout)
         case .life:
             view = MiniGameView(frame: frame, game: .life)
+        case .pitfall:
+            view = PitfallHomageView(frame: frame)
+        case .et:
+            view = ETHomageView(frame: frame)
+        case .caveFlyer:
+            view = CaveFlyerView(frame: frame)
+        case .adventure:
+            view = AdventureTerminalView(frame: frame)
         case .kitt:
             view = KITTScannerView(frame: frame)
         case .tokiPona:
@@ -268,6 +292,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showSnake() { mode = .snake; rebuildAndPresent() }
     @objc private func showBreakout() { mode = .breakout; rebuildAndPresent() }
     @objc private func showLife() { mode = .life; rebuildAndPresent() }
+    @objc private func showPitfall() { mode = .pitfall; rebuildAndPresent() }
+    @objc private func showET() { mode = .et; rebuildAndPresent() }
+    @objc private func showCaveFlyer() { mode = .caveFlyer; rebuildAndPresent() }
+    @objc private func showAdventure() { mode = .adventure; rebuildAndPresent() }
     @objc private func showKITT() { mode = .kitt; rebuildAndPresent() }
     @objc private func showTokiPona() { mode = .tokiPona; rebuildAndPresent() }
 }
@@ -398,10 +426,11 @@ final class TokiPonaStudyView: NSView {
         Entry(word: "waso", meanings: "bird, flying creature"),
         Entry(word: "wawa", meanings: "strong, powerful, energetic, intense"),
         Entry(word: "weka", meanings: "away, absent, removed; remove, discard"),
-        Entry(word: "wile", meanings: "want, need, must, should; desire"),
+        Entry(word: "wile", meanings: "want, need, must, should; desire")
     ]
 
     private let wordLabel = NSTextField(labelWithString: "")
+    private let pronunciationLabel = NSTextField(labelWithString: "")
     private let meaningLabel = NSTextField(labelWithString: "")
     private var timer: Timer?
     private var currentIndex: Int?
@@ -410,29 +439,33 @@ final class TokiPonaStudyView: NSView {
         super.init(frame: frameRect)
         buildUI()
         showRandomWord()
-        startTimer()
+        restartTimer()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         buildUI()
         showRandomWord()
-        startTimer()
+        restartTimer()
     }
 
-    deinit {
-        timer?.invalidate()
-    }
+    deinit { timer?.invalidate() }
 
     private func buildUI() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
 
-        wordLabel.font = .monospacedSystemFont(ofSize: 18, weight: .bold)
+        wordLabel.font = .monospacedSystemFont(ofSize: 17, weight: .bold)
         wordLabel.textColor = .white
         wordLabel.alignment = .right
         wordLabel.lineBreakMode = .byClipping
         wordLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        pronunciationLabel.font = .monospacedSystemFont(ofSize: 9, weight: .medium)
+        pronunciationLabel.textColor = NSColor(calibratedRed: 0.55, green: 0.85, blue: 1.0, alpha: 1)
+        pronunciationLabel.alignment = .center
+        pronunciationLabel.lineBreakMode = .byClipping
+        pronunciationLabel.translatesAutoresizingMaskIntoConstraints = false
 
         meaningLabel.font = .systemFont(ofSize: 10, weight: .regular)
         meaningLabel.textColor = NSColor(calibratedWhite: 0.88, alpha: 1)
@@ -448,45 +481,98 @@ final class TokiPonaStudyView: NSView {
         separator.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(wordLabel)
+        addSubview(pronunciationLabel)
         addSubview(separator)
         addSubview(meaningLabel)
 
         NSLayoutConstraint.activate([
-            wordLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            wordLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             wordLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            wordLabel.widthAnchor.constraint(equalToConstant: 150),
+            wordLabel.widthAnchor.constraint(equalToConstant: 125),
 
-            separator.leadingAnchor.constraint(equalTo: wordLabel.trailingAnchor, constant: 10),
+            pronunciationLabel.leadingAnchor.constraint(equalTo: wordLabel.trailingAnchor, constant: 5),
+            pronunciationLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            pronunciationLabel.widthAnchor.constraint(equalToConstant: 120),
+
+            separator.leadingAnchor.constraint(equalTo: pronunciationLabel.trailingAnchor, constant: 5),
             separator.centerYAnchor.constraint(equalTo: centerYAnchor),
             separator.widthAnchor.constraint(equalToConstant: 10),
 
-            meaningLabel.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: 10),
-            meaningLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            meaningLabel.leadingAnchor.constraint(equalTo: separator.trailingAnchor, constant: 8),
+            meaningLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             meaningLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
 
-    private func startTimer() {
-        let timer = Timer(timeInterval: 60.0, repeats: true) { [weak self] _ in
+    override func mouseDown(with event: NSEvent) {
+        showRandomWord()
+        restartTimer()
+    }
+
+    private func restartTimer() {
+        timer?.invalidate()
+        let newTimer = Timer(timeInterval: 60.0, repeats: true) { [weak self] _ in
             self?.showRandomWord()
         }
-        self.timer = timer
-        RunLoop.main.add(timer, forMode: .common)
+        timer = newTimer
+        RunLoop.main.add(newTimer, forMode: .common)
     }
 
     private func showRandomWord() {
         guard !entries.isEmpty else { return }
-
         var next = Int.random(in: 0..<entries.count)
         if entries.count > 1 {
-            while next == currentIndex {
-                next = Int.random(in: 0..<entries.count)
-            }
+            while next == currentIndex { next = Int.random(in: 0..<entries.count) }
         }
-
         currentIndex = next
         let entry = entries[next]
         wordLabel.stringValue = entry.word
+        pronunciationLabel.stringValue = pronunciation(for: entry.word)
         meaningLabel.stringValue = entry.meanings
+    }
+
+    private func pronunciation(for word: String) -> String {
+        let characters = Array(word)
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u"]
+        var syllables: [String] = []
+        var index = 0
+
+        func consonant(_ character: Character) -> String {
+            character == "j" ? "y" : String(character)
+        }
+        func vowel(_ character: Character) -> String {
+            switch character {
+            case "a": return "ah"
+            case "e": return "eh"
+            case "i": return "ee"
+            case "o": return "oh"
+            case "u": return "oo"
+            default: return String(character)
+            }
+        }
+
+        while index < characters.count {
+            var syllable = ""
+            if !vowels.contains(characters[index]) {
+                syllable += consonant(characters[index])
+                index += 1
+            }
+            guard index < characters.count, vowels.contains(characters[index]) else { break }
+            syllable += vowel(characters[index])
+            index += 1
+
+            if index < characters.count, characters[index] == "n" {
+                let nextIsVowel = index + 1 < characters.count && vowels.contains(characters[index + 1])
+                if !nextIsVowel {
+                    syllable += "n"
+                    index += 1
+                }
+            }
+            syllables.append(syllable)
+        }
+
+        return syllables.enumerated().map { offset, syllable in
+            offset == 0 ? syllable.uppercased() : syllable.lowercased()
+        }.joined(separator: "-")
     }
 }
