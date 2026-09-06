@@ -212,8 +212,9 @@ final class MiniGameView: NSView {
 
     private func placeFood() {
         let cols = max(24, Int(bounds.width / snakeCell))
+        let rows = max(4, Int(bounds.height / snakeCell))
         repeat {
-            food = CGPoint(x: CGFloat(Int.random(in: 1..<max(2, cols - 1))), y: CGFloat(Int.random(in: 0..<lifeRows)))
+            food = CGPoint(x: CGFloat(Int.random(in: 1..<max(2, cols - 1))), y: CGFloat(Int.random(in: 0..<rows)))
         } while snake.contains(food)
     }
 
@@ -224,11 +225,16 @@ final class MiniGameView: NSView {
         guard let head = snake.first else { return }
 
         snakeDirection = pendingSnakeDirection
-        let next = CGPoint(x: head.x + snakeDirection.x, y: head.y + snakeDirection.y)
+        var next = CGPoint(x: head.x + snakeDirection.x, y: head.y + snakeDirection.y)
         let cols = max(24, Int(bounds.width / snakeCell))
         let rows = max(4, Int(bounds.height / snakeCell))
 
-        if next.x < 0 || next.x >= CGFloat(cols) || next.y < 0 || next.y >= CGFloat(rows) || snake.contains(next) {
+        // The Touch Bar is so shallow that vertical wrapping is important.
+        // Left and right remain real walls, while top/bottom connect.
+        if next.y < 0 { next.y = CGFloat(rows - 1) }
+        else if next.y >= CGFloat(rows) { next.y = 0 }
+
+        if next.x < 0 || next.x >= CGFloat(cols) || snake.contains(next) {
             resetGame(full: true)
             return
         }
@@ -698,7 +704,6 @@ final class CaveFlyerView: NSView {
         }
         top.lineWidth = 1; bottom.lineWidth = 1; top.stroke(); bottom.stroke()
 
-        // Vector ship
         let sx: CGFloat = 86
         let ship = NSBezierPath()
         ship.move(to: NSPoint(x: sx + 7, y: shipY))
