@@ -5,8 +5,10 @@
 
 import Cocoa
 
-final class TouchBarpaloozaLemmingsPlugin: NSObject, BTTPluginInterface {
+class TouchBarpaloozaLemmingsPlugin: NSObject, BTTPluginInterface {
     weak var delegate: (any BTTTouchBarPluginDelegate)?
+
+    static func configurationFormItems() -> BTTPluginFormItem? { nil }
 
     private lazy var viewController: NSViewController = {
         let controller = NSViewController()
@@ -18,7 +20,7 @@ final class TouchBarpaloozaLemmingsPlugin: NSObject, BTTPluginInterface {
     }()
 
     func touchBarViewController() -> NSViewController? {
-        viewController
+        return viewController
     }
 }
 
@@ -63,12 +65,11 @@ private final class BTTLemmingsView: NSView {
     private func startAnimating() {
         timer?.invalidate()
         lastTick = ProcessInfo.processInfo.systemUptime
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
-        if let timer {
-            RunLoop.main.add(timer, forMode: .common)
-        }
+        timer = newTimer
+        RunLoop.main.add(newTimer, forMode: .common)
     }
 
     private func tick() {
@@ -129,23 +130,19 @@ private final class BTTLemmingsView: NSView {
         let shirt = NSColor(calibratedRed: 0.12, green: 0.36, blue: 0.98, alpha: 1)
         let shoe = NSColor(calibratedWhite: 0.90, alpha: 1)
 
-        // Hair and head face right.
         block(1, 0, 4, 1, color: hair)
         block(0, 1, 6, 1, color: hair)
         block(1, 2, 5, 1, color: hair)
         block(2, 3, 3, 2, color: skin)
         block(5, 3, 1, 1, color: skin)
 
-        // Tunic.
         block(2, 5, 3, 3, color: shirt)
         block(1, 6, 1, 2, color: shirt)
         block(5, 6, 1, 2, color: shirt)
 
-        // Arms and legs alternate to create a readable walk cycle.
         if frame {
             block(0, 6, 2, 1, color: skin)
             block(5, 7, 2, 1, color: skin)
-
             block(2, 8, 1, 2, color: skin)
             block(4, 8, 1, 1, color: skin)
             block(5, 9, 1, 1, color: skin)
@@ -154,7 +151,6 @@ private final class BTTLemmingsView: NSView {
         } else {
             block(0, 7, 2, 1, color: skin)
             block(5, 6, 2, 1, color: skin)
-
             block(2, 8, 1, 1, color: skin)
             block(1, 9, 1, 1, color: skin)
             block(4, 8, 1, 2, color: skin)
