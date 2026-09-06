@@ -42,7 +42,6 @@ final class LemmingsView: NSView {
 
     private let gameMode: GameMode
 
-    // Newly drawn 8-frame homage to the original 1991 walker silhouette.
     private let walkerFrames: [[String]] = [
         ["........","..GGGG..",".GGSSS..","..SS....","..BBS...",".SBBB...","..BBB...","..BB....",".SS..S..","..S..SS."],
         ["........","..GGGG..",".GGSSS..","..SSS...","..BBB...",".SBBB.S.","..BBB...","..BB....",".S...SS.","SS......"],
@@ -70,8 +69,9 @@ final class LemmingsView: NSView {
     private var selectedSkill: Skill = .builder
     private var paused = false
     private var releaseRate = 50
-    private var gapBridged = false
-    private var wallBashed = false
+
+    private var bridgeProgress: CGFloat = 0
+    private var wallBashProgress: CGFloat = 0
     private var trenchDug = false
     private var demoAssignedBuilder = false
     private var demoAssignedBasher = false
@@ -85,7 +85,7 @@ final class LemmingsView: NSView {
     private var entranceX: CGFloat { 10 }
     private var entranceDropX: CGFloat { entranceX + 19 }
     private var exitX: CGFloat { max(150, bounds.width - 47) }
-    private var exitDoorX: CGFloat { exitX + 17 }
+    private var exitDoorRect: NSRect { NSRect(x: exitX + 13, y: groundY - 15, width: 12, height: 15) }
     private var gapStart: CGFloat { max(145, bounds.width * 0.34) }
     private var gapEnd: CGFloat { gapStart + 38 }
     private var wallStart: CGFloat { max(gapEnd + 70, bounds.width * 0.62) }
@@ -106,6 +106,7 @@ final class LemmingsView: NSView {
     private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        if gameMode == .demo { releaseRate = 20 }
         startAnimating()
     }
 
@@ -202,7 +203,6 @@ final class LemmingsView: NSView {
                 return
             }
 
-            // A tall upward step is a wall. Climbers can traverse it; others turn.
             if nextSurface < currentSurface - 6 {
                 if walkers[index].isClimber {
                     walkers[index].x = nextX
@@ -225,15 +225,18 @@ final class LemmingsView: NSView {
 
             walkers[index].y = nextSurface - spriteHeight
 
-            if walkers[index].direction > 0 && walkers[index].x + spriteWidth * 0.72 >= exitDoorX {
+            if walkers[index].direction > 0 && walkers[index].x + spriteWidth >= exitDoorRect.minX {
                 walkers[index].state = .entering
                 walkers[index].stateTime = 0
+                walkers[index].x = exitDoorRect.minX - spriteWidth * 0.62
+                walkers[index].y = groundY - spriteHeight
             }
 
         case .entering:
             walkers[index].stateTime += dt
-            walkers[index].x += walkSpeed * 0.35 * CGFloat(dt)
-            if walkers[index].stateTime >= 0.35 {
+            walkers[index].x += walkSpeed * 0.42 * CGFloat(dt)
+            walkers[index].walkDistance += walkSpeed * 0.42 * CGFloat(dt)
+            if walkers[index].stateTime >= 0.38 {
                 walkers[index].state = .saved
                 savedCount += 1
             }
@@ -243,16 +246,35 @@ final class LemmingsView: NSView {
 
         case .building:
             walkers[index].stateTime += dt
-            if walkers[index].stateTime > 0.75 {
-                gapBridged = true
+            bridgeProgress = min(1, CGFloat(walkers[index].stateTime / 1.35))
+            let span = gapEnd - gapStart
+            walkers[index].x = gapStart - spriteWidth * 0.55 + span * bridgeProgress
+            walkers[index].y = groundY - spriteHeight - sin(bridgeProgress * .pi) * 2
+            walkers[index].walkDistance += walkSpeed * CGFloat(dt)
+            if bridgeProgress >= 1 {
+                walkers[index].x = gapEnd + 1
+                walkers[index].y = walkY
                 walkers[index].state = .walking
                 walkers[index].stateTime = 0
             }
 
-        case .bashing, .mining:
+        case .bashing:
             walkers[index].stateTime += dt
-            if walkers[index].stateTime > 0.65 {
-                wallBashed = true
+            wallBashProgress = min(1, CGFloat(walkers[index].stateTime / 0.95))
+            let span = wallEnd - wallStart
+            walkers[index].x = wallStart - spriteWidth * 0.4 + span * wallBashProgress
+            walkers[index].y = walkY
+            walkers[index].walkDistance += walkSpeed * CGFloat(dt)
+            if wallBashProgress >= 1 {
+                walkers[index].x = wallEnd + 1
+                walkers[index].state = .walking
+                walkers[index].stateTime = 0
+            }
+
+        case .mining:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime > 0.75 {
+                wallBashProgress = 1
                 walkers[index].state = .walking
                 walkers[index].stateTime = 0
             }
@@ -269,8 +291,8 @@ final class LemmingsView: NSView {
         case .bombing:
             walkers[index].stateTime += dt
             if walkers[index].stateTime > 1.6 {
-                if abs(walkers[index].x - wallStart) < 35 { wallBashed = true }
-                if walkers[index].x > gapStart - 20 && walkers[index].x < gapEnd + 20 { gapBridged = true }
+                if abs(walkers[index].x - wallStart) < 35 { wallBashProgress = 1 }
+                if walkers[index].x > gapStart - 20 && walkers[index].x < gapEnd + 20 { bridgeProgress = 1 }
                 walkers[index].state = .dead
                 deadCount += 1
             }
@@ -289,11 +311,15 @@ final class LemmingsView: NSView {
 
     private func surfaceY(at x: CGFloat) -> CGFloat {
         if x >= gapStart && x <= gapEnd {
-            return gapBridged ? groundY - 1 : bounds.height + 20
+            let builtTo = gapStart + (gapEnd - gapStart) * bridgeProgress
+            return x <= builtTo ? groundY : bounds.height + 20
         }
-        if x >= wallStart && x <= wallEnd && !wallBashed {
+
+        let clearedTo = wallStart + (wallEnd - wallStart) * wallBashProgress
+        if x >= clearedTo && x <= wallEnd && wallBashProgress < 1 {
             return groundY - 11
         }
+
         if trenchDug && x >= gapStart - 75 && x <= gapStart - 52 {
             return bounds.height + 14
         }
@@ -302,12 +328,18 @@ final class LemmingsView: NSView {
 
     private func runDemoAI() {
         if !demoAssignedBuilder,
-           let index = walkers.indices.first(where: { walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > gapStart - 30 }) {
+           let index = walkers.indices.first(where: {
+               walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > gapStart - 24
+           }) {
             apply(.builder, to: index)
             demoAssignedBuilder = true
         }
-        if gapBridged && !demoAssignedBasher,
-           let index = walkers.indices.first(where: { walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > wallStart - 28 }) {
+
+        if bridgeProgress >= 1,
+           !demoAssignedBasher,
+           let index = walkers.indices.first(where: {
+               walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > wallStart - 24
+           }) {
             apply(.basher, to: index)
             demoAssignedBasher = true
         }
@@ -358,11 +390,17 @@ final class LemmingsView: NSView {
         drawTerrain()
         drawEntrance()
         drawHUD()
+        drawExitBackground()
 
         for walker in walkers where walker.state != .saved && walker.state != .dead {
-            drawWalker(walker)
+            if walker.state == .entering {
+                drawEnteringWalker(walker)
+            } else {
+                drawWalker(walker)
+            }
         }
-        drawExit()
+
+        drawExitForeground()
     }
 
     private func drawHUD() {
@@ -391,10 +429,26 @@ final class LemmingsView: NSView {
             }
         }
 
-        if gapBridged {
+        if bridgeProgress > 0 {
             let bridge = NSColor(calibratedRed: 0.78, green: 0.52, blue: 0.16, alpha: 1)
+            let builtWidth = (gapEnd - gapStart) * bridgeProgress
             bridge.setFill()
-            NSRect(x: gapStart - 2, y: groundY - 2, width: gapEnd - gapStart + 4, height: 2).fill()
+            let stepCount = max(1, Int(bridgeProgress * 8))
+            for step in 0..<stepCount {
+                let w = (gapEnd - gapStart) / 8
+                NSRect(x: gapStart + CGFloat(step) * w, y: groundY - 2 - CGFloat(step % 2), width: w + 1, height: 2).fill()
+            }
+            if builtWidth < 1 { _ = builtWidth }
+        }
+
+        if wallBashProgress < 1 {
+            let remainingStart = wallStart + (wallEnd - wallStart) * wallBashProgress
+            let wall = NSColor(calibratedRed: 0.43, green: 0.17, blue: 0.05, alpha: 1)
+            let wallLight = NSColor(calibratedRed: 0.72, green: 0.34, blue: 0.08, alpha: 1)
+            wall.setFill()
+            NSRect(x: remainingStart, y: groundY - 11, width: max(0, wallEnd - remainingStart), height: 11).fill()
+            wallLight.setFill()
+            NSRect(x: remainingStart, y: groundY - 11, width: max(0, wallEnd - remainingStart), height: 2).fill()
         }
     }
 
@@ -417,16 +471,20 @@ final class LemmingsView: NSView {
         NSRect(x: center - 3 * open, y: y + 7, width: 6 * open, height: 5).fill()
     }
 
-    private func drawExit() {
+    private func drawExitBackground() {
+        let doorway = NSColor(calibratedRed: 0.04, green: 0.06, blue: 0.24, alpha: 1)
+        doorway.setFill()
+        exitDoorRect.fill()
+        NSColor(calibratedRed: 0.12, green: 0.22, blue: 0.62, alpha: 1).setFill()
+        NSRect(x: exitDoorRect.minX + 2, y: exitDoorRect.minY + 2, width: exitDoorRect.width - 4, height: 2).fill()
+    }
+
+    private func drawExitForeground() {
         let x = exitX
         let base = groundY
         let stoneDark = NSColor(calibratedRed: 0.22, green: 0.24, blue: 0.28, alpha: 1)
         let stone = NSColor(calibratedRed: 0.48, green: 0.49, blue: 0.50, alpha: 1)
-        let doorway = NSColor(calibratedRed: 0.04, green: 0.06, blue: 0.24, alpha: 1)
-        let flame = NSColor(calibratedRed: 1.0, green: 0.52, blue: 0.04, alpha: 1)
 
-        doorway.setFill()
-        NSRect(x: x + 13, y: base - 15, width: 12, height: 15).fill()
         stoneDark.setFill()
         NSRect(x: x + 9, y: base - 19, width: 20, height: 4).fill()
         NSRect(x: x + 7, y: base - 15, width: 6, height: 15).fill()
@@ -435,9 +493,27 @@ final class LemmingsView: NSView {
         NSRect(x: x + 12, y: base - 21, width: 14, height: 3).fill()
         NSRect(x: x + 9, y: base - 17, width: 5, height: 4).fill()
         NSRect(x: x + 24, y: base - 17, width: 5, height: 4).fill()
-        flame.setFill()
-        NSRect(x: x + 3, y: base - 16, width: 3, height: 5).fill()
-        NSRect(x: x + 32, y: base - 16, width: 3, height: 5).fill()
+
+        drawTorch(at: x + 4, base: base, phase: 0)
+        drawTorch(at: x + 33, base: base, phase: .pi)
+    }
+
+    private func drawTorch(at x: CGFloat, base: CGFloat, phase: CGFloat) {
+        let pulse = sin(CGFloat(elapsed) * 17 + phase)
+        let height: CGFloat = pulse > 0 ? 6 : 4
+        let red = NSColor(calibratedRed: 0.95, green: 0.10, blue: 0.02, alpha: 1)
+        let yellow = NSColor(calibratedRed: 1.0, green: 0.74, blue: 0.05, alpha: 1)
+        let holder = NSColor(calibratedRed: 0.32, green: 0.22, blue: 0.12, alpha: 1)
+        holder.setFill(); NSRect(x: x, y: base - 11, width: 2, height: 4).fill()
+        red.setFill(); NSRect(x: x - 1, y: base - 11 - height, width: 4, height: height).fill()
+        yellow.setFill(); NSRect(x: x, y: base - 10 - height, width: 2, height: max(2, height - 2)).fill()
+    }
+
+    private func drawEnteringWalker(_ walker: Walker) {
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: exitDoorRect.insetBy(dx: 1, dy: 0)).addClip()
+        drawWalker(walker)
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     private func drawWalker(_ walker: Walker) {
