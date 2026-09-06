@@ -1,0 +1,221 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* main.swift */; };
+		A10000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* AppDelegate.swift */; };
+		A10000000000000000000003 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MainViewController.swift */; };
+		A10000000000000000000004 /* LemmingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* LemmingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* LemmingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LemmingsView.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000006 /* TouchBarpalooza.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TouchBarpalooza.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D10000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000002 /* TouchBarpalooza */,
+				D10000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D10000000000000000000002 /* TouchBarpalooza */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* main.swift */,
+				B10000000000000000000002 /* AppDelegate.swift */,
+				B10000000000000000000003 /* MainViewController.swift */,
+				B10000000000000000000004 /* LemmingsView.swift */,
+				B10000000000000000000005 /* Info.plist */,
+			);
+			path = TouchBarpalooza;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000006 /* TouchBarpalooza.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E10000000000000000000001 /* TouchBarpalooza */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F10000000000000000000002 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				C10000000000000000000002 /* Sources */,
+				C10000000000000000000001 /* Frameworks */,
+				C10000000000000000000003 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = TouchBarpalooza;
+			productName = TouchBarpalooza;
+			productReference = B10000000000000000000006 /* TouchBarpalooza.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E10000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					E10000000000000000000001 = {CreatedOnToolsVersion = 16.0;};
+				};
+			};
+			buildConfigurationList = F10000000000000000000001 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = D10000000000000000000001;
+			productRefGroup = D10000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (E10000000000000000000001 /* TouchBarpalooza */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C10000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* main.swift in Sources */,
+				A10000000000000000000002 /* AppDelegate.swift in Sources */,
+				A10000000000000000000003 /* MainViewController.swift in Sources */,
+				A10000000000000000000004 /* LemmingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F10000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F10000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		F10000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.udeudeude.TouchBarpalooza;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F10000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TouchBarpalooza/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.udeudeude.TouchBarpalooza;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F10000000000000000000001 /* Build configuration list for PBXProject */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000003 /* Debug */,
+				F10000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F10000000000000000000002 /* Build configuration list for PBXNativeTarget */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10000000000000000000005 /* Debug */,
+				F10000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E10000000000000000000002 /* Project object */;
+}
