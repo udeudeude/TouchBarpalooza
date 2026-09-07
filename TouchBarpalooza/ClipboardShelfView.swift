@@ -1,5 +1,4 @@
 import AppKit
-import ApplicationServices
 import CoreGraphics
 
 final class ClipboardShelfView: NSView {
@@ -107,11 +106,6 @@ final class ClipboardShelfView: NSView {
 
     @objc private func choose(_ sender: NSButton) {
         guard sender.tag < history.count else { return }
-
-        // A Touch Bar press does not normally take keyboard focus away from the
-        // application the user is working in, so remember that process before
-        // changing the pasteboard and send Command-V back to it explicitly.
-        let targetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let chosen = history[sender.tag]
 
         history.remove(at: sender.tag)
@@ -124,31 +118,23 @@ final class ClipboardShelfView: NSView {
         pasteboard.setString(chosen, forType: .string)
         lastChangeCount = pasteboard.changeCount
 
-        pasteIntoTarget(pid: targetPID)
+        pasteIntoFrontmostApplication()
     }
 
-    private func pasteIntoTarget(pid: pid_t?) {
-        guard AXIsProcessTrusted() else {
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            _ = AXIsProcessTrustedWithOptions(options)
-            return
-        }
+    private func pasteIntoFrontmostApplication() {
+        // Permission is requested once when TouchBarpalooza launches. Never
+        // reopen System Settings from a clipping tap. If permission is absent,
+        // the clipping still becomes the current clipboard contents.
+        guard CGPreflightPostEventAccess() else { return }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
             guard let source = CGEventSource(stateID: .hidSystemState),
                   let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
                   let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else { return }
-
             down.flags = .maskCommand
             up.flags = .maskCommand
-
-            if let pid = pid {
-                down.postToPid(pid)
-                up.postToPid(pid)
-            } else {
-                down.post(tap: .cghidEventTap)
-                up.post(tap: .cghidEventTap)
-            }
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
         }
     }
 }
