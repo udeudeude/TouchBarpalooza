@@ -6,7 +6,7 @@ final class ClipboardShelfView: NSView {
     private static let defaultsKey = "TouchBarpalooza.ClipboardHistory"
     private static let maximumHistoryCount = 12
 
-    private var history: [String] = UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? []
+    private var history: [String] = UserDefaults.standard.stringArray(forKey: ClipboardShelfView.defaultsKey) ?? []
     private var buttons: [NSButton] = []
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
