@@ -46,6 +46,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
     private weak var currentLemmingsView: LemmingsView?
+    private var lemmingsSkillButtons: [NSButton] = []
 
     func start() {
         guard !isStarted else { return }
@@ -75,6 +76,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func rebuildAndPresent() {
         currentLemmingsView = nil
+        lemmingsSkillButtons.removeAll()
+
         let bar = NSTouchBar()
         bar.delegate = self
         bar.escapeKeyReplacementItemIdentifier = nil
@@ -157,7 +160,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func preferredContentWidth() -> CGFloat {
         switch mode {
-        case .lemmingsPlay: return 430
+        case .lemmingsPlay: return 350
         case .clipboard: return 690
         case .midi: return 690
         default: return 700
@@ -192,11 +195,11 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .breakout:
             content = MiniGameView(frame: frame, game: .breakout)
         case .life:
-            content = LifeGameView(frame: frame)
+            content = LifeGameViewV2(frame: frame)
         case .pitfall:
             content = PitfallGameView(frame: frame)
         case .et:
-            content = ETGameView(frame: frame)
+            content = ETPixelGameView(frame: frame)
         case .adventure:
             content = AdventureTerminalView(frame: frame)
         case .kitt:
@@ -214,31 +217,42 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func lemmingsControlItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 250, height: 30))
-        stack.orientation = .horizontal
-        stack.spacing = 2
+        let view = FixedTouchBarView(size: NSSize(width: 240, height: 30))
 
-        let skills = NSSegmentedControl(
-            labels: LemmingsView.Skill.allCases.map { String($0.shortName.prefix(2)) },
-            trackingMode: .selectOne,
-            target: self,
-            action: #selector(skillChanged(_:))
-        )
-        skills.selectedSegment = LemmingsView.Skill.builder.rawValue
-        skills.font = .monospacedSystemFont(ofSize: 6.0, weight: .medium)
-        skills.widthAnchor.constraint(equalToConstant: 150).isActive = true
-        stack.addArrangedSubview(skills)
+        let abbreviations = ["CL", "FL", "BO", "BL", "BU", "BA", "MI", "DI"]
+        let fullNames = LemmingsView.Skill.allCases.map(\.shortName)
+        var x: CGFloat = 0
+        lemmingsSkillButtons.removeAll()
 
-        let pause = compactButton("⏸", #selector(toggleLemmingsPause))
-        let slower = compactButton("−", #selector(releaseSlower))
-        let faster = compactButton("+", #selector(releaseFaster))
-        let nuke = compactButton("☠", #selector(nukeLemmings))
-        for button in [pause, slower, faster, nuke] {
-            button.widthAnchor.constraint(equalToConstant: 22).isActive = true
-            stack.addArrangedSubview(button)
+        for index in abbreviations.indices {
+            let button = NSButton(title: abbreviations[index], target: self, action: #selector(skillButtonPressed(_:)))
+            button.tag = index
+            button.font = .monospacedSystemFont(ofSize: 5.5, weight: .bold)
+            button.frame = NSRect(x: x, y: 2, width: 18, height: 26)
+            button.toolTip = fullNames[index]
+            button.setButtonType(.toggle)
+            button.state = index == LemmingsView.Skill.builder.rawValue ? .on : .off
+            view.addSubview(button)
+            lemmingsSkillButtons.append(button)
+            x += 19
         }
 
-        item.view = stack
+        x += 2
+        let actions: [(String, Selector, CGFloat)] = [
+            ("⏸", #selector(toggleLemmingsPause), 22),
+            ("−", #selector(releaseSlower), 20),
+            ("+", #selector(releaseFaster), 20),
+            ("☠", #selector(nukeLemmings), 22)
+        ]
+        for (title, action, width) in actions {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 7.5)
+            button.frame = NSRect(x: x, y: 2, width: width, height: 26)
+            view.addSubview(button)
+            x += width + 1
+        }
+
+        item.view = view
         item.visibilityPriority = .high
         return item
     }
@@ -250,14 +264,17 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         stack.spacing = 2
         stack.distribution = .fillEqually
 
+        // Chronological by the first public release of each inspiration:
+        // Life (1970), Pong (1972), Adventure (early 1976), Breakout (May 1976),
+        // Blockade/Snake (Oct/Nov 1976), Pitfall! (1982), E.T. (Dec 1982).
         let specs: [(String, Selector)] = [
-            ("Pong", #selector(showPong)),
-            ("Snake", #selector(showSnake)),
-            ("Break", #selector(showBreakout)),
             ("Life", #selector(showLife)),
+            ("Pong", #selector(showPong)),
+            ("Cave", #selector(showAdventure)),
+            ("Break", #selector(showBreakout)),
+            ("Snake", #selector(showSnake)),
             ("Pit", #selector(showPitfall)),
-            ("E.T.", #selector(showET)),
-            ("Cave", #selector(showAdventure))
+            ("E.T.", #selector(showET))
         ]
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
@@ -278,6 +295,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         let item = NSCustomTouchBarItem(identifier: identifier)
         item.view = NSButton(title: title, target: self, action: action)
         return item
+    }
+
+    @objc private func skillButtonPressed(_ sender: NSButton) {
+        guard let skill = LemmingsView.Skill(rawValue: sender.tag) else { return }
+        for button in lemmingsSkillButtons { button.state = button === sender ? .on : .off }
+        currentLemmingsView?.selectSkill(skill)
     }
 
     @objc private func skillChanged(_ sender: NSSegmentedControl) {
@@ -319,6 +342,335 @@ private final class TouchBarContentHostView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+private final class FixedTouchBarView: NSView {
+    private let fixedSize: NSSize
+
+    init(size: NSSize) {
+        fixedSize = size
+        super.init(frame: NSRect(origin: .zero, size: size))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override var intrinsicContentSize: NSSize { fixedSize }
+}
+
+// AppKit intentionally exposes Touch Bar custom touch input as essentially 1-D:
+// x is meaningful, y is not. This version makes that explicit. The row selector
+// chooses which Life row a horizontal finger stroke edits.
+private final class LifeStrokeView: NSView {
+    var xHandler: ((CGFloat) -> Void)?
+    var endHandler: (() -> Void)?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        acceptsTouchEvents = true
+        allowedTouchTypes = [.direct]
+        wantsRestingTouches = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) { xHandler?(convert(event.locationInWindow, from: nil).x) }
+    override func mouseDragged(with event: NSEvent) { xHandler?(convert(event.locationInWindow, from: nil).x) }
+    override func mouseUp(with event: NSEvent) { endHandler?() }
+
+    override func touchesBegan(with event: NSEvent) { emit(event, phase: .began) }
+    override func touchesMoved(with event: NSEvent) { emit(event, phase: .moved) }
+    override func touchesEnded(with event: NSEvent) { emit(event, phase: .ended); endHandler?() }
+    override func touchesCancelled(with event: NSEvent) { endHandler?() }
+
+    private func emit(_ event: NSEvent, phase: NSTouch.Phase) {
+        for touch in event.touches(matching: phase, in: self) {
+            xHandler?(touch.location(in: self).x)
+        }
+    }
+}
+
+final class LifeGameViewV2: NSView {
+    private let columns = 82
+    private let rows = 7
+    private let controlsWidth: CGFloat = 284
+    private var cells: [[Bool]]
+    private var history: [[[Bool]]] = []
+    private var running = false
+    private var accumulator: TimeInterval = 0
+    private var paintValue: Bool?
+    private var selectedRow = 3
+    private var timer: Timer?
+    private var lastTick = ProcessInfo.processInfo.systemUptime
+    private weak var strokeView: LifeStrokeView?
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+
+    override init(frame frameRect: NSRect) {
+        cells = Array(repeating: Array(repeating: false, count: rows), count: columns)
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+        seed()
+        buildControls()
+        startTimer()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    deinit { timer?.invalidate() }
+
+    private func buildControls() {
+        let specs: [(String, Selector, NSRect)] = [
+            ("RUN", #selector(toggleRun(_:)), NSRect(x: 2, y: 3, width: 37, height: 24)),
+            ("BACK", #selector(back), NSRect(x: 41, y: 3, width: 38, height: 24)),
+            ("STEP", #selector(stepButton), NSRect(x: 81, y: 3, width: 38, height: 24)),
+            ("CLR", #selector(clear), NSRect(x: 121, y: 3, width: 34, height: 24)),
+            ("RND", #selector(randomize), NSRect(x: 157, y: 3, width: 34, height: 24))
+        ]
+        for (title, action, frame) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .monospacedSystemFont(ofSize: 6.3, weight: .bold)
+            button.frame = frame
+            addSubview(button)
+        }
+
+        let rowControl = NSSegmentedControl(labels: ["1", "2", "3", "4", "5", "6", "7"], trackingMode: .selectOne, target: self, action: #selector(rowChanged(_:)))
+        rowControl.selectedSegment = selectedRow
+        rowControl.font = .monospacedDigitSystemFont(ofSize: 6, weight: .bold)
+        rowControl.frame = NSRect(x: 194, y: 3, width: 86, height: 24)
+        for index in 0..<7 { rowControl.setWidth(12, forSegment: index) }
+        rowControl.toolTip = "Life row to paint; Touch Bar custom touch input provides horizontal position only"
+        addSubview(rowControl)
+
+        let stroke = LifeStrokeView(frame: NSRect(x: controlsWidth, y: 0, width: max(1, bounds.width - controlsWidth), height: bounds.height))
+        stroke.autoresizingMask = [.width, .height]
+        stroke.xHandler = { [weak self] x in self?.paint(atX: x) }
+        stroke.endHandler = { [weak self] in self?.paintValue = nil }
+        addSubview(stroke)
+        strokeView = stroke
+    }
+
+    private func startTimer() {
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in self?.tick() }
+        self.timer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func tick() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let dt = min(0.1, now - lastTick)
+        lastTick = now
+        guard running else { return }
+        accumulator += dt
+        guard accumulator >= 0.16 else { return }
+        accumulator -= 0.16
+        step(recordHistory: true)
+    }
+
+    private func pushHistory() {
+        history.append(cells)
+        if history.count > 64 { history.removeFirst() }
+    }
+
+    @objc private func toggleRun(_ sender: NSButton) {
+        running.toggle()
+        sender.title = running ? "PAUSE" : "RUN"
+    }
+
+    @objc private func back() {
+        running = false
+        guard let previous = history.popLast() else { return }
+        cells = previous
+        needsDisplay = true
+    }
+
+    @objc private func stepButton() { step(recordHistory: true) }
+
+    @objc private func clear() {
+        pushHistory()
+        running = false
+        cells = Array(repeating: Array(repeating: false, count: rows), count: columns)
+        needsDisplay = true
+    }
+
+    @objc private func randomize() {
+        pushHistory()
+        for x in 0..<columns {
+            for y in 0..<rows { cells[x][y] = Int.random(in: 0..<5) == 0 }
+        }
+        needsDisplay = true
+    }
+
+    @objc private func rowChanged(_ sender: NSSegmentedControl) {
+        selectedRow = max(0, min(rows - 1, sender.selectedSegment))
+        paintValue = nil
+        needsDisplay = true
+    }
+
+    private func paint(atX xPosition: CGFloat) {
+        guard let strokeView else { return }
+        let x = max(0, min(columns - 1, Int((xPosition / max(1, strokeView.bounds.width)) * CGFloat(columns))))
+        if paintValue == nil {
+            pushHistory()
+            paintValue = !cells[x][selectedRow]
+        }
+        cells[x][selectedRow] = paintValue ?? true
+        needsDisplay = true
+    }
+
+    private func seed() {
+        for x in stride(from: 7, to: columns - 7, by: 14) {
+            cells[x][2] = true
+            cells[x + 1][3] = true
+            cells[x + 2][1] = true
+            cells[x + 2][2] = true
+            cells[x + 2][3] = true
+        }
+    }
+
+    private func step(recordHistory: Bool) {
+        if recordHistory { pushHistory() }
+        var next = cells
+        for x in 0..<columns {
+            for y in 0..<rows {
+                var neighbors = 0
+                for dx in -1...1 {
+                    for dy in -1...1 where !(dx == 0 && dy == 0) {
+                        let nx = (x + dx + columns) % columns
+                        let ny = (y + dy + rows) % rows
+                        if cells[nx][ny] { neighbors += 1 }
+                    }
+                }
+                next[x][y] = neighbors == 3 || (cells[x][y] && neighbors == 2)
+            }
+        }
+        cells = next
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.black.setFill(); dirtyRect.fill()
+        let gridWidth = max(1, bounds.width - controlsWidth)
+        let cellWidth = gridWidth / CGFloat(columns)
+        let cellHeight = bounds.height / CGFloat(rows)
+
+        NSColor(calibratedWhite: 0.18, alpha: 1).setFill()
+        NSRect(x: controlsWidth, y: CGFloat(selectedRow) * cellHeight, width: gridWidth, height: cellHeight).fill()
+
+        NSColor(calibratedRed: 0.15, green: 0.86, blue: 0.95, alpha: 1).setFill()
+        for x in 0..<columns {
+            for y in 0..<rows where cells[x][y] {
+                NSRect(
+                    x: controlsWidth + CGFloat(x) * cellWidth,
+                    y: CGFloat(y) * cellHeight,
+                    width: max(1, cellWidth - 0.4),
+                    height: max(1, cellHeight - 0.4)
+                ).fill()
+            }
+        }
+    }
+}
+
+final class ETPixelGameView: NSView {
+    private var playerX: CGFloat = 184
+    private var pieces = [CGPoint(x: 300, y: 13), CGPoint(x: 470, y: 12), CGPoint(x: 620, y: 15)]
+    private var collected = Set<Int>()
+    private var score = 8975
+
+    // Fresh pixel drawing based directly on the supplied Atari reference,
+    // mirrored so the creature faces right. No generated or embedded image asset.
+    private let sprite: [String] = [
+        "..########..",
+        "..##########",
+        "..##......##",
+        "..##....####",
+        "..######.....",
+        "..#######....",
+        "..##..####...",
+        "..##..##.....",
+        "...##.###....",
+        "..###..###..."
+    ]
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        buildControls()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func buildControls() {
+        let specs: [(String, Selector, NSRect)] = [
+            ("◀", #selector(stepLeft), NSRect(x: 2, y: 2, width: 28, height: 26)),
+            ("TAKE", #selector(takePressed), NSRect(x: 32, y: 2, width: 46, height: 26)),
+            ("▶", #selector(stepRight), NSRect(x: 80, y: 2, width: 28, height: 26))
+        ]
+        for (title, action, frame) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 7)
+            button.frame = frame
+            addSubview(button)
+        }
+    }
+
+    @objc private func stepLeft() { playerX = max(122, playerX - 16); needsDisplay = true }
+    @objc private func stepRight() { playerX = min(bounds.width - 24, playerX + 16); needsDisplay = true }
+    @objc private func takePressed() { collectNearby() }
+
+    private func collectNearby() {
+        for index in pieces.indices where !collected.contains(index) {
+            if abs(pieces[index].x - playerX) < 25 {
+                collected.insert(index)
+                score += 25
+            }
+        }
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let field = NSColor(calibratedRed: 0.31, green: 0.47, blue: 0.23, alpha: 1)
+        field.setFill(); dirtyRect.fill()
+
+        NSColor(calibratedRed: 0.03, green: 0.22, blue: 0.04, alpha: 1).setFill()
+        for rect in [CGRect(x: 250, y: 9, width: 58, height: 5), CGRect(x: 405, y: 18, width: 70, height: 5), CGRect(x: 555, y: 8, width: 68, height: 5)] { rect.fill() }
+
+        for index in pieces.indices where !collected.contains(index) {
+            NSColor(calibratedRed: 0.95, green: 0.78, blue: 0.20, alpha: 1).setFill()
+            NSRect(x: pieces[index].x, y: pieces[index].y, width: 5, height: 3).fill()
+        }
+
+        drawET(at: NSPoint(x: playerX, y: 7))
+
+        let hud = collected.count == pieces.count ? "CALL HOME" : String(format: "%04d  PHONE %d/3", score, collected.count)
+        hud.draw(at: NSPoint(x: 120, y: 1), withAttributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold),
+            .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.20, blue: 0.04, alpha: 1)
+        ])
+    }
+
+    private func drawET(at origin: NSPoint) {
+        let pixel: CGFloat = 1.35
+        let color = NSColor(calibratedRed: 0.67, green: 0.83, blue: 0.49, alpha: 1)
+        color.setFill()
+
+        for (row, line) in sprite.enumerated() {
+            for (column, character) in line.enumerated() where character == "#" {
+                let y = origin.y + CGFloat(sprite.count - 1 - row) * pixel
+                NSRect(
+                    x: origin.x + CGFloat(column) * pixel,
+                    y: y,
+                    width: pixel + 0.08,
+                    height: pixel + 0.08
+                ).fill()
+            }
+        }
+
+        // Single dark Atari-style eye at the leading/right side of the head.
+        NSColor(calibratedRed: 0.08, green: 0.24, blue: 0.06, alpha: 1).setFill()
+        NSRect(x: origin.x + 9.2 * pixel, y: origin.y + 8.0 * pixel, width: 1.4 * pixel, height: 1.1 * pixel).fill()
+    }
 }
 
 final class TokiPonaStudyView: NSView {
