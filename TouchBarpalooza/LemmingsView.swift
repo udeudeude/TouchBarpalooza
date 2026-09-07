@@ -1,30 +1,19 @@
 import AppKit
 
-private final class LemmingsTouchSurface: NSButton {
-    var pointHandler: ((CGPoint) -> Void)?
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func draw(_ dirtyRect: NSRect) {}
-
-    override func mouseDown(with event: NSEvent) {
-        pointHandler?(convert(event.locationInWindow, from: nil))
-    }
-}
-
 final class LemmingsView: NSView {
     enum Skill: Int, CaseIterable {
         case climber, floater, bomber, blocker, builder, basher, miner, digger
 
         var shortName: String {
             switch self {
-            case .climber: return "CL"
-            case .floater: return "FL"
-            case .bomber: return "BO"
-            case .blocker: return "BL"
-            case .builder: return "BU"
-            case .basher: return "BA"
-            case .miner: return "MI"
-            case .digger: return "DI"
+            case .climber: return "CLIMB"
+            case .floater: return "FLOAT"
+            case .bomber: return "BOMB"
+            case .blocker: return "BLOCK"
+            case .builder: return "BUILD"
+            case .basher: return "BASH"
+            case .miner: return "MINE"
+            case .digger: return "DIG"
             }
         }
     }
@@ -35,7 +24,7 @@ final class LemmingsView: NSView {
     }
 
     private enum State {
-        case falling, walking, entering, blocking, building, bashing, mining, digging, bombing, saved, dead
+        case falling, walking, entering, blocking, building, bashing, mining, digging, bombing, exploding, saved, dead
     }
 
     private enum BuildKind {
@@ -73,6 +62,7 @@ final class LemmingsView: NSView {
     private let walkSpeed: CGFloat = 25
     private let baseFallSpeed: CGFloat = 44
     private let lemmingCount = 12
+    private let bombCountdown: TimeInterval = 5.0
 
     private var walkers: [Walker] = []
     private var timer: Timer?
@@ -98,6 +88,9 @@ final class LemmingsView: NSView {
     private var demoWallFailureSeen = false
     private var demoAssignedBasher = false
     private var demoNuked = false
+
+    private var walkerTouchButtons: [NSButton] = []
+    private var demoNukeButton: NSButton?
 
     override var isFlipped: Bool { true }
     override var intrinsicContentSize: NSSize {
@@ -145,19 +138,32 @@ final class LemmingsView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         if gameMode == .demo { releaseRate = 45 }
-
-        // Custom NSView mouse/gesture events are unreliable inside the private
-        // system-modal Touch Bar host. A borderless NSButton receives actual
-        // Touch Bar presses reliably while drawing nothing over the game.
-        let touchSurface = LemmingsTouchSurface(frame: bounds)
-        touchSurface.isBordered = false
-        touchSurface.title = ""
-        touchSurface.focusRingType = .none
-        touchSurface.autoresizingMask = [.width, .height]
-        touchSurface.pointHandler = { [weak self] point in self?.handleTouch(at: point) }
-        addSubview(touchSurface)
-
+        buildTouchTargets()
         startAnimating()
+    }
+
+    private func buildTouchTargets() {
+        if gameMode == .demo {
+            let button = NSButton(title: "", target: self, action: #selector(demoPressed))
+            button.isBordered = false
+            button.focusRingType = .none
+            button.alphaValue = 0.01
+            button.frame = bounds
+            button.autoresizingMask = [.width, .height]
+            addSubview(button)
+            demoNukeButton = button
+        } else {
+            for index in 0..<lemmingCount {
+                let button = NSButton(title: "", target: self, action: #selector(lemmingPressed(_:)))
+                button.isBordered = false
+                button.focusRingType = .none
+                button.alphaValue = 0.01
+                button.tag = index
+                button.isHidden = true
+                addSubview(button)
+                walkerTouchButtons.append(button)
+            }
+        }
     }
 
     deinit { timer?.invalidate() }
@@ -178,21 +184,31 @@ final class LemmingsView: NSView {
     }
 
     func nuke() {
+        guard !demoNuked || gameMode == .interactive else { return }
         if gameMode == .demo { demoNuked = true }
         var delay: TimeInterval = 0
-        for index in walkers.indices where walkers[index].state != .saved && walkers[index].state != .dead {
+        for index in walkers.indices where walkers[index].state != .saved && walkers[index].state != .dead && walkers[index].state != .exploding {
             walkers[index].nukeDelay = delay
-            delay += 0.16
+            delay += 0.20
         }
+        needsDisplay = true
+    }
+
+    @objc private func demoPressed() {
+        nuke()
+    }
+
+    @objc private func lemmingPressed(_ sender: NSButton) {
+        let index = sender.tag
+        guard walkers.indices.contains(index),
+              walkers[index].state != .saved,
+              walkers[index].state != .dead,
+              walkers[index].state != .exploding else { return }
+        apply(selectedSkill, to: index)
     }
 
     private var spawnInterval: TimeInterval {
         1.50 - (Double(releaseRate) / 99.0) * 1.05
-    }
-
-    private func intervalAfterSpawn() -> TimeInterval {
-        if gameMode == .demo && spawnedCount <= 3 { return 0.72 }
-        return spawnInterval
     }
 
     private func startAnimating() {
@@ -214,14 +230,14 @@ final class LemmingsView: NSView {
            elapsed >= nextSpawnTime {
             walkers.append(Walker(x: entranceDropX, y: 6))
             spawnedCount += 1
-            nextSpawnTime = elapsed + intervalAfterSpawn()
+            nextSpawnTime = elapsed + spawnInterval
         }
 
         for index in walkers.indices {
             if var delay = walkers[index].nukeDelay {
                 delay -= dt
                 walkers[index].nukeDelay = delay
-                if delay <= 0 && walkers[index].state != .dead && walkers[index].state != .saved {
+                if delay <= 0 && walkers[index].state != .dead && walkers[index].state != .saved && walkers[index].state != .exploding {
                     walkers[index].state = .bombing
                     walkers[index].stateTime = 0
                     walkers[index].nukeDelay = nil
@@ -231,7 +247,29 @@ final class LemmingsView: NSView {
         }
 
         if gameMode == .demo && !demoNuked { runDemoAI() }
+        updateWalkerTouchTargets()
         needsDisplay = true
+    }
+
+    private func updateWalkerTouchTargets() {
+        guard gameMode == .interactive else { return }
+        for (index, button) in walkerTouchButtons.enumerated() {
+            guard walkers.indices.contains(index) else {
+                button.isHidden = true
+                continue
+            }
+            let walker = walkers[index]
+            let active = walker.state != .saved && walker.state != .dead && walker.state != .exploding
+            button.isHidden = !active
+            if active {
+                button.frame = NSRect(
+                    x: max(0, walker.x - 6),
+                    y: max(0, walker.y - 4),
+                    width: spriteWidth + 12,
+                    height: min(bounds.height, spriteHeight + 8)
+                )
+            }
+        }
     }
 
     private func updateWalker(_ index: Int, dt: TimeInterval) {
@@ -388,8 +426,15 @@ final class LemmingsView: NSView {
 
         case .bombing:
             walkers[index].stateTime += dt
-            if walkers[index].stateTime > 1.6 {
+            if walkers[index].stateTime >= bombCountdown {
                 if abs(walkers[index].x - wallStart) < 34 { wallBashProgress = 1 }
+                walkers[index].state = .exploding
+                walkers[index].stateTime = 0
+            }
+
+        case .exploding:
+            walkers[index].stateTime += dt
+            if walkers[index].stateTime >= 0.34 {
                 walkers[index].state = .dead
                 deadCount += 1
             }
@@ -451,19 +496,6 @@ final class LemmingsView: NSView {
         }
     }
 
-    private func handleTouch(at point: CGPoint) {
-        if gameMode == .demo {
-            if !demoNuked { nuke() }
-            return
-        }
-
-        guard let index = walkers.indices
-            .filter({ walkers[$0].state != .saved && walkers[$0].state != .dead })
-            .min(by: { abs((walkers[$0].x + spriteWidth / 2) - point.x) < abs((walkers[$1].x + spriteWidth / 2) - point.x) }),
-              abs(walkers[index].x + spriteWidth / 2 - point.x) < 24 else { return }
-        apply(selectedSkill, to: index)
-    }
-
     private func apply(_ skill: Skill, to index: Int) {
         guard walkers.indices.contains(index) else { return }
         switch skill {
@@ -506,7 +538,9 @@ final class LemmingsView: NSView {
         drawExitBackgroundAndLeftPost()
 
         for walker in walkers where walker.state != .saved && walker.state != .dead {
-            if walker.state == .entering {
+            if walker.state == .exploding {
+                drawExplosion(walker)
+            } else if walker.state == .entering {
                 drawEnteringWalker(walker)
             } else {
                 drawWalker(walker)
@@ -521,7 +555,7 @@ final class LemmingsView: NSView {
         if paused { text += "  PAUSE" }
         if gameMode == .interactive { text += "  \(selectedSkill.shortName): TAP LEMMING" }
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 6.2, weight: .medium),
+            .font: NSFont.monospacedSystemFont(ofSize: 5.7, weight: .medium),
             .foregroundColor: NSColor(calibratedWhite: 0.78, alpha: 1)
         ]
         text.draw(at: NSPoint(x: 74, y: 1), withAttributes: attrs)
@@ -680,12 +714,28 @@ final class LemmingsView: NSView {
         }
 
         if walker.state == .bombing {
-            let remaining = max(0, 1.6 - walker.stateTime)
+            let remaining = max(0, bombCountdown - walker.stateTime)
             let text = String(Int(ceil(remaining)))
             text.draw(at: NSPoint(x: walker.x + 2, y: max(0, walker.y - 7)), withAttributes: [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold),
                 .foregroundColor: NSColor.white
             ])
+        }
+    }
+
+    private func drawExplosion(_ walker: Walker) {
+        let center = NSPoint(x: walker.x + spriteWidth / 2, y: walker.y + spriteHeight / 2)
+        let phase = CGFloat(min(1, walker.stateTime / 0.34))
+        let radius = 3 + phase * 10
+        NSColor(calibratedRed: 1.0, green: 0.82, blue: 0.18, alpha: 1 - phase * 0.35).setFill()
+        NSBezierPath(ovalIn: NSRect(x: center.x - radius * 0.45, y: center.y - radius * 0.45, width: radius * 0.9, height: radius * 0.9)).fill()
+        NSColor(calibratedRed: 1.0, green: 0.18, blue: 0.03, alpha: 1 - phase * 0.55).setStroke()
+        for angle in stride(from: CGFloat(0), to: CGFloat.pi * 2, by: CGFloat.pi / 4) {
+            let path = NSBezierPath()
+            path.move(to: center)
+            path.line(to: NSPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius))
+            path.lineWidth = 1.3
+            path.stroke()
         }
     }
 
