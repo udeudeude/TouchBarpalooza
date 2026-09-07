@@ -219,11 +219,25 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             content = NSView(frame: frame)
         }
 
-        // The system-modal Touch Bar drops a custom item entirely when its
-        // view reports a rigid intrinsic width that no longer fits beside
-        // Home/system controls. Keep the host intrinsically flexible and let
-        // the Touch Bar choose the available width.
-        item.view = TouchBarContentHostView(content: content, preferredWidth: width)
+        // For the demo, make the custom item's top-level view itself an
+        // NSButton. The private system-modal Touch Bar reliably delivers button
+        // presses even when ordinary gesture recognizers inside custom views do
+        // not receive touch events. hitTest() on the host below deliberately
+        // keeps the entire animated strip as one tap target.
+        if mode == .lemmingsDemo {
+            item.view = TouchBarActionHostButton(
+                content: content,
+                preferredWidth: width,
+                target: self,
+                action: #selector(nukeLemmings)
+            )
+        } else {
+            // The system-modal Touch Bar drops a custom item entirely when its
+            // view reports a rigid intrinsic width that no longer fits beside
+            // Home/system controls. Keep the host intrinsically flexible and let
+            // the Touch Bar choose the available width.
+            item.view = TouchBarContentHostView(content: content, preferredWidth: width)
+        }
         item.visibilityPriority = .high
         return item
     }
@@ -331,6 +345,28 @@ private final class TouchBarContentHostView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+private final class TouchBarActionHostButton: NSButton {
+    init(content: NSView, preferredWidth: CGFloat, target: AnyObject?, action: Selector?) {
+        let size = NSSize(width: preferredWidth, height: 30)
+        super.init(frame: NSRect(origin: .zero, size: size))
+        title = ""
+        isBordered = false
+        bezelStyle = .regularSquare
+        self.target = target
+        self.action = action
+
+        content.frame = bounds
+        content.autoresizingMask = [.width, .height]
+        addSubview(content)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(point) ? self : nil
+    }
 }
 
 final class TokiPonaStudyView: NSView {
