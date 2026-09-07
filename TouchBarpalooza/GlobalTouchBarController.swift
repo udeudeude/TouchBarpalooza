@@ -157,7 +157,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func preferredContentWidth() -> CGFloat {
         switch mode {
-        case .lemmingsPlay: return 340
+        case .lemmingsPlay: return 430
         case .clipboard: return 690
         case .midi: return 690
         default: return 700
@@ -192,11 +192,11 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .breakout:
             content = MiniGameView(frame: frame, game: .breakout)
         case .life:
-            content = MiniGameView(frame: frame, game: .life)
+            content = LifeGameView(frame: frame)
         case .pitfall:
-            content = PitfallHomageView(frame: frame)
+            content = PitfallGameView(frame: frame)
         case .et:
-            content = ETHomageView(frame: frame)
+            content = ETGameView(frame: frame)
         case .adventure:
             content = AdventureTerminalView(frame: frame)
         case .kitt:
@@ -207,36 +207,39 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             content = NSView(frame: frame)
         }
 
-        // Keep the top-level custom item a plain flexible view. Wrapping the
-        // whole animation in NSButton caused the private system-modal host to
-        // collapse the item to the button's tiny intrinsic size.
         item.view = TouchBarContentHostView(content: content, preferredWidth: width)
-        item.visibilityPriority = .high
+        item.visibilityPriority = mode == .lemmingsPlay ? .normal : .high
         return item
     }
 
     private func lemmingsControlItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 360, height: 30))
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 250, height: 30))
         stack.orientation = .horizontal
         stack.spacing = 2
 
         let skills = NSSegmentedControl(
-            labels: LemmingsView.Skill.allCases.map { $0.shortName },
+            labels: LemmingsView.Skill.allCases.map { String($0.shortName.prefix(2)) },
             trackingMode: .selectOne,
             target: self,
             action: #selector(skillChanged(_:))
         )
         skills.selectedSegment = LemmingsView.Skill.builder.rawValue
-        skills.font = .monospacedSystemFont(ofSize: 5.6, weight: .medium)
-        skills.frame.size.width = 235
+        skills.font = .monospacedSystemFont(ofSize: 6.0, weight: .medium)
+        skills.widthAnchor.constraint(equalToConstant: 150).isActive = true
         stack.addArrangedSubview(skills)
-        stack.addArrangedSubview(compactButton("⏸", #selector(toggleLemmingsPause)))
-        stack.addArrangedSubview(compactButton("−", #selector(releaseSlower)))
-        stack.addArrangedSubview(compactButton("+", #selector(releaseFaster)))
-        stack.addArrangedSubview(compactButton("☠", #selector(nukeLemmings)))
+
+        let pause = compactButton("⏸", #selector(toggleLemmingsPause))
+        let slower = compactButton("−", #selector(releaseSlower))
+        let faster = compactButton("+", #selector(releaseFaster))
+        let nuke = compactButton("☠", #selector(nukeLemmings))
+        for button in [pause, slower, faster, nuke] {
+            button.widthAnchor.constraint(equalToConstant: 22).isActive = true
+            stack.addArrangedSubview(button)
+        }
 
         item.view = stack
+        item.visibilityPriority = .high
         return item
     }
 
