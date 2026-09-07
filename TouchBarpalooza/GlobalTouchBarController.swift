@@ -36,7 +36,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case life
         case pitfall
         case et
-        case caveFlyer
         case adventure
         case kitt
         case tokiPona
@@ -52,8 +51,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         guard !isStarted else { return }
         isStarted = true
 
-        // Keep the system Escape key. The private system-modal host may still
-        // show its own X in some contexts; Home is our navigation control.
         DFRSystemModalShowsCloseBoxWhenFrontMost(false)
 
         let trayItem = NSCustomTouchBarItem(identifier: .touchBarpaloozaTray)
@@ -80,7 +77,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         currentLemmingsView = nil
         let bar = NSTouchBar()
         bar.delegate = self
-        // Explicitly leave the Escape slot alone. Home is a normal item.
         bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
@@ -108,7 +104,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .gamesCompact]
 
         case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life,
-             .pitfall, .et, .caveFlyer, .adventure, .kitt, .tokiPona:
+             .pitfall, .et, .adventure, .kitt, .tokiPona:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         }
 
@@ -161,16 +157,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func preferredContentWidth() -> CGFloat {
         switch mode {
-        case .lemmingsPlay: return 410
-        case .lemmingsDemo: return 700
+        case .lemmingsPlay: return 340
         case .clipboard: return 690
-        case .audio: return 700
         case .midi: return 690
-        case .pong, .snake, .breakout, .life: return 700
-        case .pitfall, .et, .caveFlyer, .adventure: return 700
-        case .kitt: return 700
-        case .tokiPona: return 700
-        default: return 600
+        default: return 700
         }
     }
 
@@ -207,8 +197,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             content = PitfallHomageView(frame: frame)
         case .et:
             content = ETHomageView(frame: frame)
-        case .caveFlyer:
-            content = CaveFlyerView(frame: frame)
         case .adventure:
             content = AdventureTerminalView(frame: frame)
         case .kitt:
@@ -219,32 +207,17 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             content = NSView(frame: frame)
         }
 
-        // For the demo, make the custom item's top-level view itself an
-        // NSButton. The private system-modal Touch Bar reliably delivers button
-        // presses even when ordinary gesture recognizers inside custom views do
-        // not receive touch events. hitTest() on the host below deliberately
-        // keeps the entire animated strip as one tap target.
-        if mode == .lemmingsDemo {
-            item.view = TouchBarActionHostButton(
-                content: content,
-                preferredWidth: width,
-                target: self,
-                action: #selector(nukeLemmings)
-            )
-        } else {
-            // The system-modal Touch Bar drops a custom item entirely when its
-            // view reports a rigid intrinsic width that no longer fits beside
-            // Home/system controls. Keep the host intrinsically flexible and let
-            // the Touch Bar choose the available width.
-            item.view = TouchBarContentHostView(content: content, preferredWidth: width)
-        }
+        // Keep the top-level custom item a plain flexible view. Wrapping the
+        // whole animation in NSButton caused the private system-modal host to
+        // collapse the item to the button's tiny intrinsic size.
+        item.view = TouchBarContentHostView(content: content, preferredWidth: width)
         item.visibilityPriority = .high
         return item
     }
 
     private func lemmingsControlItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 270, height: 30))
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 360, height: 30))
         stack.orientation = .horizontal
         stack.spacing = 2
 
@@ -255,10 +228,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             action: #selector(skillChanged(_:))
         )
         skills.selectedSegment = LemmingsView.Skill.builder.rawValue
-        skills.font = .monospacedSystemFont(ofSize: 6.5, weight: .medium)
-        skills.frame.size.width = 165
+        skills.font = .monospacedSystemFont(ofSize: 5.6, weight: .medium)
+        skills.frame.size.width = 235
         stack.addArrangedSubview(skills)
-        stack.addArrangedSubview(compactButton("⏯", #selector(toggleLemmingsPause)))
+        stack.addArrangedSubview(compactButton("⏸", #selector(toggleLemmingsPause)))
         stack.addArrangedSubview(compactButton("−", #selector(releaseSlower)))
         stack.addArrangedSubview(compactButton("+", #selector(releaseFaster)))
         stack.addArrangedSubview(compactButton("☠", #selector(nukeLemmings)))
@@ -269,7 +242,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 610, height: 30))
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 545, height: 30))
         stack.orientation = .horizontal
         stack.spacing = 2
         stack.distribution = .fillEqually
@@ -281,8 +254,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ("Life", #selector(showLife)),
             ("Pit", #selector(showPitfall)),
             ("E.T.", #selector(showET)),
-            ("Scram", #selector(showCaveFlyer)),
-            ("Adv", #selector(showAdventure))
+            ("Cave", #selector(showAdventure))
         ]
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
@@ -329,7 +301,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showLife() { mode = .life; rebuildAndPresent() }
     @objc private func showPitfall() { mode = .pitfall; rebuildAndPresent() }
     @objc private func showET() { mode = .et; rebuildAndPresent() }
-    @objc private func showCaveFlyer() { mode = .caveFlyer; rebuildAndPresent() }
     @objc private func showAdventure() { mode = .adventure; rebuildAndPresent() }
     @objc private func showKITT() { mode = .kitt; rebuildAndPresent() }
     @objc private func showTokiPona() { mode = .tokiPona; rebuildAndPresent() }
@@ -345,28 +316,6 @@ private final class TouchBarContentHostView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-}
-
-private final class TouchBarActionHostButton: NSButton {
-    init(content: NSView, preferredWidth: CGFloat, target: AnyObject?, action: Selector?) {
-        let size = NSSize(width: preferredWidth, height: 30)
-        super.init(frame: NSRect(origin: .zero, size: size))
-        title = ""
-        isBordered = false
-        bezelStyle = .regularSquare
-        self.target = target
-        self.action = action
-
-        content.frame = bounds
-        content.autoresizingMask = [.width, .height]
-        addSubview(content)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        bounds.contains(point) ? self : nil
-    }
 }
 
 final class TokiPonaStudyView: NSView {
@@ -549,16 +498,12 @@ wile|want, need, must, should; desire
         wordLabel.frame = NSRect(x: 8, y: 4, width: 118, height: 22)
         pronunciationLabel.frame = NSRect(x: 132, y: 7, width: 112, height: 16)
         meaningLabel.frame = NSRect(x: 258, y: 7, width: max(120, bounds.width - 266), height: 16)
-        wordLabel.autoresizingMask = []
-        pronunciationLabel.autoresizingMask = []
         meaningLabel.autoresizingMask = [.width]
 
         addSubview(wordLabel)
         addSubview(pronunciationLabel)
         addSubview(meaningLabel)
 
-        // A real NSButton gives Touch Bar taps a reliable target even when
-        // TouchBarpalooza is not the frontmost app.
         let hitButton = NSButton(frame: bounds)
         hitButton.title = ""
         hitButton.isBordered = false
