@@ -29,36 +29,12 @@ private final class GameKeyMonitor {
     }
 }
 
-private final class HoldActionButton: NSButton {
-    var pressHandler: (() -> Void)?
-    var releaseHandler: (() -> Void)?
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func mouseDown(with event: NSEvent) {
-        pressHandler?()
-        super.mouseDown(with: event)
-        releaseHandler?()
-    }
-}
-
-private final class LifeTouchCanvas: NSView {
+private final class LifeGridButton: NSButton {
     var pointHandler: ((CGPoint, Bool) -> Void)?
     var endHandler: (() -> Void)?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        allowedTouchTypes = [.direct]
-        wantsRestingTouches = true
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        allowedTouchTypes = [.direct]
-        wantsRestingTouches = true
-    }
-
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func draw(_ dirtyRect: NSRect) {}
 
     override func mouseDown(with event: NSEvent) {
         pointHandler?(convert(event.locationInWindow, from: nil), false)
@@ -70,30 +46,6 @@ private final class LifeTouchCanvas: NSView {
 
     override func mouseUp(with event: NSEvent) {
         endHandler?()
-    }
-
-    override func touchesBegan(with event: NSEvent) {
-        sendTouches(event, phase: .began, dragging: false)
-    }
-
-    override func touchesMoved(with event: NSEvent) {
-        sendTouches(event, phase: .moved, dragging: true)
-    }
-
-    override func touchesEnded(with event: NSEvent) {
-        sendTouches(event, phase: .ended, dragging: true)
-        endHandler?()
-    }
-
-    override func touchesCancelled(with event: NSEvent) {
-        endHandler?()
-    }
-
-    private func sendTouches(_ event: NSEvent, phase: NSTouch.Phase, dragging: Bool) {
-        for touch in event.touches(matching: phase, in: self) {
-            let p = touch.normalizedPosition
-            pointHandler?(CGPoint(x: p.x * bounds.width, y: p.y * bounds.height), dragging)
-        }
     }
 }
 
@@ -121,6 +73,7 @@ final class MiniGameView: NSView {
     private var leftScore = 0
     private var rightScore = 0
     private let pongPaddleHeight: CGFloat = 9
+    private var serveFromLeft = true
 
     // Snake
     private let snakeCell: CGFloat = 5
@@ -138,14 +91,15 @@ final class MiniGameView: NSView {
     private var breakoutScore = 0
 
     // Life
-    private let lifeColumns = 104
+    private let lifeColumns = 96
     private let lifeRows = 7
     private var life: [[Bool]] = []
+    private var lifeHistory: [[[Bool]]] = []
     private var lifeAccumulator: TimeInterval = 0
     private var lifeRunning = false
     private var lifePaintValue: Bool?
-    private let lifeControlsWidth: CGFloat = 154
-    private var lifeCanvas: LifeTouchCanvas?
+    private let lifeControlsWidth: CGFloat = 202
+    private var lifeGridButton: LifeGridButton?
 
     override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -179,9 +133,9 @@ final class MiniGameView: NSView {
     deinit { timer?.invalidate() }
 
     private func addKeyboardFocusButton() {
-        let button = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        button.font = .systemFont(ofSize: 10)
-        button.frame = NSRect(x: 2, y: 2, width: 29, height: 26)
+        let button = NSButton(title: "KEYS", target: self, action: #selector(focusKeyboard))
+        button.font = .monospacedSystemFont(ofSize: 7, weight: .bold)
+        button.frame = NSRect(x: 2, y: 2, width: 43, height: 26)
         button.toolTip = "Bring TouchBarpalooza to the front for keyboard controls"
         addSubview(button)
     }
@@ -193,10 +147,10 @@ final class MiniGameView: NSView {
         guard down, game == .snake else { return }
 
         switch event.keyCode {
-        case 123, 0: setSnakeDirection(x: -1, y: 0)
-        case 124, 2: setSnakeDirection(x: 1, y: 0)
-        case 125, 1: setSnakeDirection(x: 0, y: -1)
-        case 126, 13: setSnakeDirection(x: 0, y: 1)
+        case 123, 0: setSnakeDirection(x: -1, y: 0) // left / A
+        case 124, 2: setSnakeDirection(x: 1, y: 0)  // right / D
+        case 125, 1: setSnakeDirection(x: 0, y: -1) // down / S
+        case 126, 13: setSnakeDirection(x: 0, y: 1) // up / W
         default: break
         }
     }
@@ -204,8 +158,12 @@ final class MiniGameView: NSView {
     private func resetGame(full: Bool) {
         switch game {
         case .pong:
-            if full { leftScore = 0; rightScore = 0 }
-            resetPongBall(towardRight: Bool.random())
+            if full {
+                leftScore = 0
+                rightScore = 0
+                serveFromLeft = true
+            }
+            resetPongServe()
         case .snake:
             snake = [CGPoint(x: 15, y: 3), CGPoint(x: 14, y: 3), CGPoint(x: 13, y: 3)]
             snakeDirection = CGPoint(x: 1, y: 0)
@@ -214,10 +172,15 @@ final class MiniGameView: NSView {
             if full { snakeScore = 0 }
             placeFood()
         case .breakout:
-            if full { breakoutLives = 3; breakoutScore = 0; buildBricks() }
+            if full {
+                breakoutLives = 3
+                breakoutScore = 0
+                buildBricks()
+            }
             resetBreakoutBall()
         case .life:
             life = Array(repeating: Array(repeating: false, count: lifeRows), count: lifeColumns)
+            lifeHistory.removeAll()
             seedLife()
             lifeRunning = false
         }
@@ -239,9 +202,10 @@ final class MiniGameView: NSView {
 
     // MARK: Pong
 
-    private func resetPongBall(towardRight: Bool) {
-        ball = CGPoint(x: max(80, bounds.width * 0.5), y: max(8, bounds.height * 0.5))
-        velocity = CGVector(dx: towardRight ? 112 : -112, dy: Bool.random() ? 62 : -62)
+    private func resetPongServe() {
+        ball = CGPoint(x: max(90, bounds.width * 0.5), y: max(8, bounds.height * 0.5))
+        velocity = CGVector(dx: serveFromLeft ? 112 : -112, dy: Bool.random() ? 62 : -62)
+        serveFromLeft.toggle()
         leftPaddleY = max(1, bounds.midY - pongPaddleHeight / 2)
         rightPaddleY = leftPaddleY
     }
@@ -262,7 +226,7 @@ final class MiniGameView: NSView {
         if ball.y <= 2 { ball.y = 2; velocity.dy = abs(velocity.dy) }
         else if ball.y >= bounds.height - 2 { ball.y = bounds.height - 2; velocity.dy = -abs(velocity.dy) }
 
-        let leftX: CGFloat = 38
+        let leftX: CGFloat = 50
         if velocity.dx < 0,
            ball.x <= leftX + 8, ball.x >= leftX,
            ball.y >= leftPaddleY - 2, ball.y <= leftPaddleY + pongPaddleHeight + 2 {
@@ -281,8 +245,13 @@ final class MiniGameView: NSView {
             velocity.dy += offset * 35
         }
 
-        if ball.x < -4 { rightScore += 1; resetPongBall(towardRight: false) }
-        else if ball.x > bounds.width + 4 { leftScore += 1; resetPongBall(towardRight: true) }
+        if ball.x < -4 {
+            rightScore += 1
+            resetPongServe()
+        } else if ball.x > bounds.width + 4 {
+            leftScore += 1
+            resetPongServe()
+        }
     }
 
     // MARK: Snake
@@ -323,8 +292,12 @@ final class MiniGameView: NSView {
         }
 
         snake.insert(next, at: 0)
-        if next == food { snakeScore += 1; placeFood() }
-        else { snake.removeLast() }
+        if next == food {
+            snakeScore += 1
+            placeFood()
+        } else {
+            snake.removeLast()
+        }
     }
 
     // MARK: Breakout
@@ -347,7 +320,7 @@ final class MiniGameView: NSView {
     }
 
     private func resetBreakoutBall() {
-        paddleX = max(45, bounds.width * 0.5)
+        paddleX = max(55, bounds.width * 0.5)
         ball = CGPoint(x: paddleX, y: 8)
         velocity = CGVector(dx: Bool.random() ? 76 : -76, dy: 105)
     }
@@ -356,7 +329,7 @@ final class MiniGameView: NSView {
         let paddleSpeed: CGFloat = 190
         if pressedKeys.contains(123) || pressedKeys.contains(0) { paddleX -= paddleSpeed * CGFloat(dt) }
         if pressedKeys.contains(124) || pressedKeys.contains(2) { paddleX += paddleSpeed * CGFloat(dt) }
-        paddleX = max(38, min(bounds.width - 38, paddleX))
+        paddleX = max(48, min(bounds.width - 38, paddleX))
 
         ball.x += velocity.dx * CGFloat(dt)
         ball.y += velocity.dy * CGFloat(dt)
@@ -381,7 +354,10 @@ final class MiniGameView: NSView {
             let verticalPenetration = min(abs(ballRect.maxY - brick.rect.minY), abs(brick.rect.maxY - ballRect.minY))
             if horizontalPenetration < verticalPenetration { velocity.dx *= -1 }
             else { velocity.dy *= -1 }
-            if bricks.isEmpty { buildBricks(); resetBreakoutBall() }
+            if bricks.isEmpty {
+                buildBricks()
+                resetBreakoutBall()
+            }
         }
 
         if ball.y < -4 {
@@ -396,23 +372,32 @@ final class MiniGameView: NSView {
     private func buildLifeControls() {
         let specs: [(String, Selector, NSRect)] = [
             ("RUN", #selector(toggleLife), NSRect(x: 2, y: 3, width: 38, height: 24)),
-            ("STEP", #selector(stepLifeButton), NSRect(x: 42, y: 3, width: 34, height: 24)),
-            ("CLR", #selector(clearLife), NSRect(x: 78, y: 3, width: 36, height: 24)),
-            ("RND", #selector(randomLife), NSRect(x: 116, y: 3, width: 36, height: 24))
+            ("BACK", #selector(backLife), NSRect(x: 42, y: 3, width: 38, height: 24)),
+            ("STEP", #selector(stepLifeButton), NSRect(x: 82, y: 3, width: 38, height: 24)),
+            ("CLR", #selector(clearLife), NSRect(x: 122, y: 3, width: 36, height: 24)),
+            ("RND", #selector(randomLife), NSRect(x: 160, y: 3, width: 36, height: 24))
         ]
         for (title, action, frame) in specs {
             let button = NSButton(title: title, target: self, action: action)
-            button.font = .monospacedSystemFont(ofSize: 7, weight: .bold)
+            button.font = .monospacedSystemFont(ofSize: 6.5, weight: .bold)
             button.frame = frame
             addSubview(button)
         }
 
-        let canvas = LifeTouchCanvas(frame: NSRect(x: lifeControlsWidth, y: 0, width: max(1, bounds.width - lifeControlsWidth), height: bounds.height))
-        canvas.autoresizingMask = [.width, .height]
-        canvas.pointHandler = { [weak self] point, dragging in self?.paintLife(point, dragging: dragging) }
-        canvas.endHandler = { [weak self] in self?.lifePaintValue = nil }
-        addSubview(canvas)
-        lifeCanvas = canvas
+        let grid = LifeGridButton(frame: NSRect(x: lifeControlsWidth, y: 0, width: max(1, bounds.width - lifeControlsWidth), height: bounds.height))
+        grid.title = ""
+        grid.isBordered = false
+        grid.focusRingType = .none
+        grid.autoresizingMask = [.width, .height]
+        grid.pointHandler = { [weak self] point, dragging in self?.paintLife(point, dragging: dragging) }
+        grid.endHandler = { [weak self] in self?.lifePaintValue = nil }
+        addSubview(grid)
+        lifeGridButton = grid
+    }
+
+    private func pushLifeHistory() {
+        lifeHistory.append(life)
+        if lifeHistory.count > 64 { lifeHistory.removeFirst() }
     }
 
     @objc private func toggleLife(_ sender: NSButton) {
@@ -420,15 +405,24 @@ final class MiniGameView: NSView {
         sender.title = lifeRunning ? "PAUSE" : "RUN"
     }
 
-    @objc private func stepLifeButton() { stepLife() }
+    @objc private func stepLifeButton() { stepLife(recordHistory: true) }
+
+    @objc private func backLife() {
+        lifeRunning = false
+        guard let previous = lifeHistory.popLast() else { return }
+        life = previous
+        needsDisplay = true
+    }
 
     @objc private func clearLife() {
+        pushLifeHistory()
         life = Array(repeating: Array(repeating: false, count: lifeRows), count: lifeColumns)
         lifeRunning = false
         needsDisplay = true
     }
 
     @objc private func randomLife() {
+        pushLifeHistory()
         for x in 0..<lifeColumns {
             for y in 0..<lifeRows { life[x][y] = Int.random(in: 0..<5) == 0 }
         }
@@ -436,11 +430,15 @@ final class MiniGameView: NSView {
     }
 
     private func paintLife(_ point: CGPoint, dragging: Bool) {
-        let width = max(1, lifeCanvas?.bounds.width ?? 1)
-        let height = max(1, lifeCanvas?.bounds.height ?? 1)
+        guard let grid = lifeGridButton else { return }
+        let width = max(1, grid.bounds.width)
+        let height = max(1, grid.bounds.height)
         let x = max(0, min(lifeColumns - 1, Int((point.x / width) * CGFloat(lifeColumns))))
         let y = max(0, min(lifeRows - 1, Int((point.y / height) * CGFloat(lifeRows))))
-        if lifePaintValue == nil { lifePaintValue = !life[x][y] }
+        if lifePaintValue == nil {
+            pushLifeHistory()
+            lifePaintValue = !life[x][y]
+        }
         life[x][y] = lifePaintValue ?? true
         needsDisplay = true
     }
@@ -461,10 +459,11 @@ final class MiniGameView: NSView {
         lifeAccumulator += dt
         guard lifeAccumulator >= 0.16 else { return }
         lifeAccumulator -= 0.16
-        stepLife()
+        stepLife(recordHistory: true)
     }
 
-    private func stepLife() {
+    private func stepLife(recordHistory: Bool) {
+        if recordHistory { pushLifeHistory() }
         var next = life
         for x in 0..<lifeColumns {
             for y in 0..<lifeRows {
@@ -483,7 +482,7 @@ final class MiniGameView: NSView {
         needsDisplay = true
     }
 
-    // MARK: Touch interaction
+    // MARK: Touch interaction for the non-button games
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
@@ -499,7 +498,7 @@ final class MiniGameView: NSView {
             if abs(dx) > abs(dy) { setSnakeDirection(x: dx >= 0 ? 1 : -1, y: 0) }
             else { setSnakeDirection(x: 0, y: dy >= 0 ? 1 : -1) }
         case .breakout:
-            paddleX = max(38, min(bounds.width - 38, p.x))
+            paddleX = max(48, min(bounds.width - 38, p.x))
         case .life:
             break
         }
@@ -509,7 +508,7 @@ final class MiniGameView: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard game == .breakout else { return }
         let p = convert(event.locationInWindow, from: nil)
-        paddleX = max(38, min(bounds.width - 38, p.x))
+        paddleX = max(48, min(bounds.width - 38, p.x))
     }
 
     // MARK: Drawing
@@ -526,7 +525,7 @@ final class MiniGameView: NSView {
 
     private func drawPong() {
         NSColor.white.setFill()
-        NSRect(x: 38, y: leftPaddleY, width: 4, height: pongPaddleHeight).fill()
+        NSRect(x: 50, y: leftPaddleY, width: 4, height: pongPaddleHeight).fill()
         NSRect(x: bounds.width - 12, y: rightPaddleY, width: 4, height: pongPaddleHeight).fill()
         NSRect(x: ball.x - 2, y: ball.y - 2, width: 4, height: 4).fill()
         for y in stride(from: CGFloat(1), through: bounds.height, by: 6) {
@@ -539,11 +538,13 @@ final class MiniGameView: NSView {
 
     private func drawSnake() {
         NSColor(calibratedRed: 0.2, green: 0.95, blue: 0.3, alpha: 1).setFill()
-        for part in snake { NSRect(x: part.x * snakeCell, y: part.y * snakeCell, width: snakeCell - 1, height: snakeCell - 1).fill() }
+        for part in snake {
+            NSRect(x: part.x * snakeCell, y: part.y * snakeCell, width: snakeCell - 1, height: snakeCell - 1).fill()
+        }
         NSColor(calibratedRed: 1, green: 0.25, blue: 0.1, alpha: 1).setFill()
         NSRect(x: food.x * snakeCell, y: food.y * snakeCell, width: snakeCell - 1, height: snakeCell - 1).fill()
         let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold), .foregroundColor: NSColor.white]
-        "\(snakeScore)".draw(at: NSPoint(x: 34, y: bounds.height - 8), withAttributes: attrs)
+        "\(snakeScore)".draw(at: NSPoint(x: 47, y: bounds.height - 8), withAttributes: attrs)
     }
 
     private func drawBreakout() {
@@ -560,7 +561,7 @@ final class MiniGameView: NSView {
         NSRect(x: paddleX - 30, y: 2, width: 60, height: 3).fill()
         NSRect(x: ball.x - 2, y: ball.y - 2, width: 4, height: 4).fill()
         let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .medium), .foregroundColor: NSColor.white]
-        "\(breakoutScore)  ♥\(breakoutLives)".draw(at: NSPoint(x: 34, y: 5), withAttributes: attrs)
+        "\(breakoutScore)  ♥\(breakoutLives)".draw(at: NSPoint(x: 47, y: 5), withAttributes: attrs)
     }
 
     private func drawLife() {
@@ -586,16 +587,16 @@ final class PitfallHomageView: NSView {
     private var worldX: CGFloat = 0
     private var heroY: CGFloat = 0
     private var verticalVelocity: CGFloat = 0
-    private var touchDirection: CGFloat = 0
     private var score = 2000
     private var lives = 3
     private var treasures = 0
     private var timeRemaining: TimeInterval = 20 * 60
     private var collisionCooldown: TimeInterval = 0
     private var animationTime: TimeInterval = 0
+    private var deathTime: TimeInterval = 0
     private var collectedTreasureScenes = Set<Int>()
 
-    private let heroScreenX: CGFloat = 130
+    private let heroScreenX: CGFloat = 170
 
     override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -618,33 +619,32 @@ final class PitfallHomageView: NSView {
     deinit { timer?.invalidate() }
 
     private func addTouchControls() {
-        let left = HoldActionButton(title: "◀", target: nil, action: nil)
-        left.frame = NSRect(x: 2, y: 2, width: 25, height: 26)
-        left.pressHandler = { [weak self] in self?.touchDirection = -1 }
-        left.releaseHandler = { [weak self] in if self?.touchDirection == -1 { self?.touchDirection = 0 } }
+        let left = NSButton(title: "◀", target: self, action: #selector(stepLeft))
+        left.frame = NSRect(x: 2, y: 2, width: 28, height: 26)
         addSubview(left)
 
-        let jumpButton = HoldActionButton(title: "JUMP", target: nil, action: nil)
+        let jumpButton = NSButton(title: "JUMP", target: self, action: #selector(jumpButtonPressed))
         jumpButton.font = .systemFont(ofSize: 7)
-        jumpButton.frame = NSRect(x: 29, y: 2, width: 42, height: 26)
-        jumpButton.pressHandler = { [weak self] in self?.jump() }
+        jumpButton.frame = NSRect(x: 32, y: 2, width: 46, height: 26)
         addSubview(jumpButton)
 
-        let right = HoldActionButton(title: "▶", target: nil, action: nil)
-        right.frame = NSRect(x: 73, y: 2, width: 25, height: 26)
-        right.pressHandler = { [weak self] in self?.touchDirection = 1 }
-        right.releaseHandler = { [weak self] in if self?.touchDirection == 1 { self?.touchDirection = 0 } }
+        let right = NSButton(title: "▶", target: self, action: #selector(stepRight))
+        right.frame = NSRect(x: 80, y: 2, width: 28, height: 26)
         addSubview(right)
 
-        let keyboard = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        keyboard.frame = NSRect(x: 100, y: 2, width: 28, height: 26)
+        let keyboard = NSButton(title: "KEYS", target: self, action: #selector(focusKeyboard))
+        keyboard.font = .monospacedSystemFont(ofSize: 7, weight: .bold)
+        keyboard.frame = NSRect(x: 110, y: 2, width: 48, height: 26)
         addSubview(keyboard)
     }
 
     @objc private func focusKeyboard() { focusTouchBarpalooza() }
+    @objc private func stepLeft() { if deathTime <= 0 { worldX -= 17; needsDisplay = true } }
+    @objc private func stepRight() { if deathTime <= 0 { worldX += 17; needsDisplay = true } }
+    @objc private func jumpButtonPressed() { jump() }
 
     private func jump() {
-        if heroY <= 0.1 { verticalVelocity = 108 }
+        if deathTime <= 0 && heroY <= 0.1 { verticalVelocity = 108 }
     }
 
     private func tick() {
@@ -655,7 +655,14 @@ final class PitfallHomageView: NSView {
         timeRemaining = max(0, timeRemaining - dt)
         collisionCooldown = max(0, collisionCooldown - dt)
 
-        var direction = touchDirection
+        if deathTime > 0 {
+            deathTime -= dt
+            if deathTime <= 0 { respawnAfterDeath() }
+            needsDisplay = true
+            return
+        }
+
+        var direction: CGFloat = 0
         if pressed.contains(123) || pressed.contains(0) { direction = -1 }
         if pressed.contains(124) || pressed.contains(2) { direction = 1 }
         worldX += direction * 76 * CGFloat(dt)
@@ -679,9 +686,9 @@ final class PitfallHomageView: NSView {
             score = max(0, score - 12)
             collisionCooldown = 0.12
         } else if pattern == 1 && heroY < 4 && local > 34 && local < 76 {
-            loseLife()
+            beginDeath()
         } else if pattern == 2 && heroY < 4 && local > 47 && local < 69 {
-            loseLife()
+            beginDeath()
         } else if pattern == 3 && local > 48 && local < 67 && !collectedTreasureScenes.contains(segment) {
             collectedTreasureScenes.insert(segment)
             treasures += 1
@@ -690,12 +697,17 @@ final class PitfallHomageView: NSView {
         }
     }
 
-    private func loseLife() {
+    private func beginDeath() {
+        guard deathTime <= 0 else { return }
         lives -= 1
-        collisionCooldown = 0.8
+        deathTime = 0.9
+        verticalVelocity = 0
+        collisionCooldown = 1.0
+    }
+
+    private func respawnAfterDeath() {
         heroY = 0
         verticalVelocity = 0
-        worldX -= 28
         if lives <= 0 {
             lives = 3
             score = 2000
@@ -703,6 +715,8 @@ final class PitfallHomageView: NSView {
             timeRemaining = 20 * 60
             worldX = 0
             collectedTreasureScenes.removeAll()
+        } else {
+            worldX -= 34
         }
     }
 
@@ -722,15 +736,21 @@ final class PitfallHomageView: NSView {
             drawPitfallScene(segment: segment, x: x)
         }
 
-        drawPitfallHarry(x: heroScreenX, y: 7 + heroY)
+        drawPitfallHarry(x: heroScreenX, y: 7 + heroY, dying: deathTime > 0)
 
         let minutes = Int(timeRemaining) / 60
         let seconds = Int(timeRemaining) % 60
         let hud = String(format: "%05d  L%d  T%d  %02d:%02d", score, lives, treasures, minutes, seconds)
-        hud.draw(at: NSPoint(x: 132, y: 22), withAttributes: [
+        hud.draw(at: NSPoint(x: 162, y: 22), withAttributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 6.2, weight: .bold),
             .foregroundColor: NSColor.white
         ])
+        if deathTime > 0 {
+            "OUCH".draw(at: NSPoint(x: heroScreenX - 2, y: 20), withAttributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 6, weight: .bold),
+                .foregroundColor: NSColor.white
+            ])
+        }
     }
 
     private func drawPitfallScene(segment: Int, x: CGFloat) {
@@ -754,8 +774,12 @@ final class PitfallHomageView: NSView {
                 NSRect(x: gx, y: 6, width: 10, height: 2).fill()
                 NSRect(x: gx + 2, y: jawsOpen ? 9 : 8, width: 5, height: 1).fill()
             }
-            let rope = NSBezierPath(); rope.move(to: NSPoint(x: x + 55, y: 23)); rope.line(to: NSPoint(x: x + 47 + sin(animationTime * 2) * 5, y: 11))
-            NSColor(calibratedRed: 0.42, green: 0.27, blue: 0.05, alpha: 1).setStroke(); rope.lineWidth = 1; rope.stroke()
+            let rope = NSBezierPath()
+            rope.move(to: NSPoint(x: x + 55, y: 23))
+            rope.line(to: NSPoint(x: x + 47 + sin(animationTime * 2) * 5, y: 11))
+            NSColor(calibratedRed: 0.42, green: 0.27, blue: 0.05, alpha: 1).setStroke()
+            rope.lineWidth = 1
+            rope.stroke()
         } else if pattern == 2 {
             NSColor.black.setFill(); NSRect(x: x + 47, y: 3, width: 22, height: 6).fill()
             NSColor(calibratedWhite: 0.92, alpha: 1).setFill()
@@ -769,23 +793,24 @@ final class PitfallHomageView: NSView {
         }
     }
 
-    private func drawPitfallHarry(x: CGFloat, y: CGFloat) {
-        NSColor(calibratedRed: 0.95, green: 0.55, blue: 0.48, alpha: 1).setFill(); NSRect(x: x + 2, y: y + 8, width: 4, height: 4).fill()
-        NSColor(calibratedRed: 0.12, green: 0.42, blue: 0.16, alpha: 1).setFill(); NSRect(x: x + 1, y: y + 3, width: 6, height: 6).fill()
-        NSColor(calibratedRed: 0.08, green: 0.15, blue: 0.04, alpha: 1).setFill(); NSRect(x: x, y: y, width: 3, height: 4).fill(); NSRect(x: x + 5, y: y, width: 3, height: 4).fill()
+    private func drawPitfallHarry(x: CGFloat, y: CGFloat, dying: Bool) {
+        let wobble = dying ? sin(CGFloat(deathTime) * 28) * 4 : 0
+        let skin = dying && Int(deathTime * 12) % 2 == 0 ? NSColor.white : NSColor(calibratedRed: 0.95, green: 0.55, blue: 0.48, alpha: 1)
+        skin.setFill(); NSRect(x: x + 2 + wobble, y: y + 8, width: 4, height: 4).fill()
+        NSColor(calibratedRed: 0.12, green: 0.42, blue: 0.16, alpha: 1).setFill(); NSRect(x: x + 1 + wobble, y: y + 3, width: 6, height: 6).fill()
+        NSColor(calibratedRed: 0.08, green: 0.15, blue: 0.04, alpha: 1).setFill(); NSRect(x: x + wobble, y: y, width: 3, height: 4).fill(); NSRect(x: x + 5 + wobble, y: y, width: 3, height: 4).fill()
     }
 }
 
-// MARK: - E.T. Atari-style homage
+// MARK: - E.T. homage
 
 final class ETHomageView: NSView {
     private let keyMonitor = GameKeyMonitor()
     private var pressed = Set<UInt16>()
     private var timer: Timer?
     private var lastTick = ProcessInfo.processInfo.systemUptime
-    private var playerX: CGFloat = 150
-    private var touchDirection: CGFloat = 0
-    private var pieces = [CGPoint(x: 245, y: 13), CGPoint(x: 430, y: 12), CGPoint(x: 610, y: 15)]
+    private var playerX: CGFloat = 170
+    private var pieces = [CGPoint(x: 265, y: 13), CGPoint(x: 440, y: 12), CGPoint(x: 610, y: 15)]
     private var collected = Set<Int>()
     private var score = 8975
 
@@ -802,52 +827,51 @@ final class ETHomageView: NSView {
         }
         addTouchControls()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in self?.tick() }
-        timer = t; RunLoop.main.add(t, forMode: .common)
+        timer = t
+        RunLoop.main.add(t, forMode: .common)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
     deinit { timer?.invalidate() }
 
     private func addTouchControls() {
-        let left = HoldActionButton(title: "◀", target: nil, action: nil)
-        left.frame = NSRect(x: 2, y: 2, width: 25, height: 26)
-        left.pressHandler = { [weak self] in self?.touchDirection = -1 }
-        left.releaseHandler = { [weak self] in if self?.touchDirection == -1 { self?.touchDirection = 0 } }
+        let left = NSButton(title: "◀", target: self, action: #selector(stepLeft))
+        left.frame = NSRect(x: 2, y: 2, width: 28, height: 26)
         addSubview(left)
 
-        let take = HoldActionButton(title: "TAKE", target: nil, action: nil)
+        let take = NSButton(title: "TAKE", target: self, action: #selector(takePressed))
         take.font = .systemFont(ofSize: 7)
-        take.frame = NSRect(x: 29, y: 2, width: 42, height: 26)
-        take.pressHandler = { [weak self] in self?.collectNearby() }
+        take.frame = NSRect(x: 32, y: 2, width: 46, height: 26)
         addSubview(take)
 
-        let right = HoldActionButton(title: "▶", target: nil, action: nil)
-        right.frame = NSRect(x: 73, y: 2, width: 25, height: 26)
-        right.pressHandler = { [weak self] in self?.touchDirection = 1 }
-        right.releaseHandler = { [weak self] in if self?.touchDirection == 1 { self?.touchDirection = 0 } }
+        let right = NSButton(title: "▶", target: self, action: #selector(stepRight))
+        right.frame = NSRect(x: 80, y: 2, width: 28, height: 26)
         addSubview(right)
 
-        let keyboard = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        keyboard.frame = NSRect(x: 100, y: 2, width: 28, height: 26)
+        let keyboard = NSButton(title: "KEYS", target: self, action: #selector(focusKeyboard))
+        keyboard.font = .monospacedSystemFont(ofSize: 7, weight: .bold)
+        keyboard.frame = NSRect(x: 110, y: 2, width: 48, height: 26)
         addSubview(keyboard)
     }
 
     @objc private func focusKeyboard() { focusTouchBarpalooza() }
+    @objc private func stepLeft() { playerX = max(162, playerX - 16); needsDisplay = true }
+    @objc private func stepRight() { playerX = min(bounds.width - 22, playerX + 16); needsDisplay = true }
+    @objc private func takePressed() { collectNearby() }
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.1, now - lastTick); lastTick = now
-        var direction = touchDirection
-        if pressed.contains(123) || pressed.contains(0) { direction = -1 }
-        if pressed.contains(124) || pressed.contains(2) { direction = 1 }
-        playerX += direction * 82 * CGFloat(dt)
-        playerX = max(132, min(bounds.width - 20, playerX))
+        let dt = min(0.1, now - lastTick)
+        lastTick = now
+        if pressed.contains(123) || pressed.contains(0) { playerX -= 82 * CGFloat(dt) }
+        if pressed.contains(124) || pressed.contains(2) { playerX += 82 * CGFloat(dt) }
+        playerX = max(162, min(bounds.width - 22, playerX))
         needsDisplay = true
     }
 
     private func collectNearby() {
         for index in pieces.indices where !collected.contains(index) {
-            if abs(pieces[index].x - playerX) < 24 {
+            if abs(pieces[index].x - playerX) < 25 {
                 collected.insert(index)
                 score += 25
             }
@@ -863,7 +887,7 @@ final class ETHomageView: NSView {
 
         let pit = NSColor(calibratedRed: 0.01, green: 0.22, blue: 0.06, alpha: 1)
         pit.setFill()
-        for r in [CGRect(x: 175, y: 9, width: 58, height: 5), CGRect(x: 335, y: 18, width: 70, height: 5), CGRect(x: 500, y: 8, width: 68, height: 5), CGRect(x: 650, y: 17, width: 45, height: 5)] { r.fill() }
+        for r in [CGRect(x: 190, y: 9, width: 58, height: 5), CGRect(x: 350, y: 18, width: 70, height: 5), CGRect(x: 515, y: 8, width: 68, height: 5), CGRect(x: 650, y: 17, width: 45, height: 5)] { r.fill() }
 
         for i in pieces.indices where !collected.contains(i) {
             NSColor(calibratedRed: 0.95, green: 0.78, blue: 0.20, alpha: 1).setFill()
@@ -872,130 +896,41 @@ final class ETHomageView: NSView {
 
         drawET(at: playerX)
 
-        // Elliott/FBI-style human figure from the game's warm striped palette.
-        NSColor(calibratedRed: 0.92, green: 0.55, blue: 0.25, alpha: 1).setFill(); NSRect(x: 285, y: 10, width: 6, height: 9).fill()
-        NSColor(calibratedRed: 0.15, green: 0.24, blue: 0.58, alpha: 1).setFill(); NSRect(x: 285, y: 8, width: 3, height: 4).fill(); NSRect(x: 290, y: 8, width: 3, height: 4).fill()
-        NSColor.black.setFill(); NSRect(x: 286, y: 19, width: 5, height: 2).fill()
+        NSColor(calibratedRed: 0.92, green: 0.55, blue: 0.25, alpha: 1).setFill(); NSRect(x: 300, y: 10, width: 6, height: 9).fill()
+        NSColor(calibratedRed: 0.15, green: 0.24, blue: 0.58, alpha: 1).setFill(); NSRect(x: 300, y: 8, width: 3, height: 4).fill(); NSRect(x: 305, y: 8, width: 3, height: 4).fill()
+        NSColor.black.setFill(); NSRect(x: 301, y: 19, width: 5, height: 2).fill()
 
         let hud = collected.count == pieces.count ? "CALL HOME" : String(format: "%04d  PHONE %d/3", score, collected.count)
-        hud.draw(at: NSPoint(x: 132, y: 1), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold), .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.24, blue: 0.05, alpha: 1)])
+        hud.draw(at: NSPoint(x: 162, y: 1), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold), .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.24, blue: 0.05, alpha: 1)])
     }
 
     private func drawET(at x: CGFloat) {
-        // Original approximation of the unmistakable 2600 silhouette: large
-        // horizontal head/snout, tiny eye, narrow neck, low body and splayed
-        // arms/feet. This is drawn from scratch rather than embedding game art.
-        let et = NSColor(calibratedRed: 0.72, green: 0.91, blue: 0.36, alpha: 1)
-        let shadow = NSColor(calibratedRed: 0.20, green: 0.42, blue: 0.10, alpha: 1)
-        et.setFill()
-        NSRect(x: x + 2, y: 18, width: 11, height: 5).fill()   // head
-        NSRect(x: x + 11, y: 17, width: 4, height: 3).fill()   // snout
-        NSRect(x: x + 5, y: 13, width: 4, height: 5).fill()    // neck
-        NSRect(x: x + 3, y: 8, width: 8, height: 6).fill()     // torso
-        NSRect(x: x, y: 10, width: 4, height: 2).fill()        // rear arm
-        NSRect(x: x + 10, y: 9, width: 4, height: 2).fill()    // front arm
-        NSRect(x: x + 3, y: 5, width: 3, height: 4).fill()     // leg
-        NSRect(x: x + 8, y: 5, width: 3, height: 4).fill()     // leg
-        NSRect(x: x + 1, y: 4, width: 5, height: 2).fill()     // foot
-        NSRect(x: x + 8, y: 4, width: 5, height: 2).fill()     // foot
-        shadow.setFill(); NSRect(x: x + 10, y: 20, width: 1.5, height: 1.5).fill()
-        fieldCutout(at: x)
-    }
+        // Film E.T. is leathery brown/tan, with a very broad, flattened rounded
+        // head, huge dark eyes and a narrow extendable neck. The 2600 game made
+        // him pale green, but recognizability wins here while the world remains
+        // deliberately Atari-like.
+        let skin = NSColor(calibratedRed: 0.58, green: 0.36, blue: 0.22, alpha: 1)
+        let light = NSColor(calibratedRed: 0.76, green: 0.52, blue: 0.33, alpha: 1)
+        let eye = NSColor(calibratedRed: 0.05, green: 0.08, blue: 0.10, alpha: 1)
 
-    private func fieldCutout(at x: CGFloat) {
-        let field = NSColor(calibratedRed: 0.28, green: 0.45, blue: 0.17, alpha: 1)
-        field.setFill()
-        NSRect(x: x + 6, y: 8, width: 2, height: 3).fill()
+        skin.setFill()
+        let head = NSBezierPath(ovalIn: NSRect(x: x, y: 16, width: 18, height: 7))
+        head.fill()
+        NSRect(x: x + 6, y: 11, width: 6, height: 7).fill()
+        NSRect(x: x + 4, y: 6, width: 10, height: 7).fill()
+        NSRect(x: x + 2, y: 8, width: 4, height: 2).fill()
+        NSRect(x: x + 13, y: 8, width: 4, height: 2).fill()
+        NSRect(x: x + 5, y: 3, width: 3, height: 4).fill()
+        NSRect(x: x + 11, y: 3, width: 3, height: 4).fill()
+        NSRect(x: x + 3, y: 2, width: 6, height: 2).fill()
+        NSRect(x: x + 10, y: 2, width: 6, height: 2).fill()
+
+        light.setFill(); NSRect(x: x + 5, y: 18, width: 8, height: 2).fill()
+        eye.setFill(); NSRect(x: x + 4, y: 19, width: 3, height: 2).fill(); NSRect(x: x + 11, y: 19, width: 3, height: 2).fill()
     }
 }
 
-// MARK: - Scramble / Vectrex-style cave flyer
-
-final class CaveFlyerView: NSView {
-    private let keyMonitor = GameKeyMonitor()
-    private var pressed = Set<UInt16>()
-    private var timer: Timer?
-    private var lastTick = ProcessInfo.processInfo.systemUptime
-    private var distance: CGFloat = 0
-    private var shipY: CGFloat = 15
-    private var score = 0
-
-    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        keyMonitor.handler = { [weak self] event, down in
-            if down { self?.pressed.insert(event.keyCode) } else { self?.pressed.remove(event.keyCode) }
-        }
-        let b = NSButton(title: "⌨", target: self, action: #selector(focusKeyboard))
-        b.font = .systemFont(ofSize: 10); b.frame = NSRect(x: 2, y: 2, width: 29, height: 26); addSubview(b)
-        let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in self?.tick() }
-        timer = t; RunLoop.main.add(t, forMode: .common)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    deinit { timer?.invalidate() }
-    @objc private func focusKeyboard() { focusTouchBarpalooza() }
-
-    private func baseCeiling(_ x: CGFloat) -> CGFloat { 26 + sin(x * 0.018) * 1.4 }
-    private func baseFloor(_ x: CGFloat) -> CGFloat { 4 + sin(x * 0.021 + 1.7) * 1.1 }
-
-    private func spikeAmount(at worldX: CGFloat, top: Bool) -> CGFloat {
-        let segmentWidth: CGFloat = 92
-        let segment = Int(floor(worldX / segmentWidth))
-        let phase = ((segment % 7) + 7) % 7
-        if phase == 0 || phase == 1 { return 0 }
-        let local = worldX - CGFloat(segment) * segmentWidth
-        let center: CGFloat = top ? 28 : 63
-        let distance = abs(local - center)
-        let half: CGFloat = 13
-        guard distance < half else { return 0 }
-        return (1 - distance / half) * (top ? 8.5 : 7.5)
-    }
-
-    private func ceiling(at x: CGFloat) -> CGFloat { baseCeiling(x) - spikeAmount(at: x, top: true) }
-    private func floorY(at x: CGFloat) -> CGFloat { baseFloor(x) + spikeAmount(at: x, top: false) }
-
-    private func tick() {
-        let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.1, now - lastTick); lastTick = now
-        distance += 72 * CGFloat(dt)
-        if pressed.contains(126) || pressed.contains(13) { shipY += 68 * CGFloat(dt) }
-        if pressed.contains(125) || pressed.contains(1) { shipY -= 68 * CGFloat(dt) }
-        shipY = max(2, min(bounds.height - 2, shipY))
-
-        let worldX = distance + 94
-        if shipY + 3 > ceiling(at: worldX) || shipY - 3 < floorY(at: worldX) {
-            distance = 0; shipY = bounds.midY; score = 0
-        } else { score = Int(distance / 8) }
-        needsDisplay = true
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.black.setFill(); dirtyRect.fill()
-        let green = NSColor(calibratedRed: 0.25, green: 1.0, blue: 0.45, alpha: 1)
-        green.setStroke()
-        let top = NSBezierPath(); let bottom = NSBezierPath()
-        for x in stride(from: CGFloat(0), through: bounds.width, by: 3) {
-            let wx = distance + x
-            let cy = ceiling(at: wx); let fy = floorY(at: wx)
-            if x == 0 { top.move(to: NSPoint(x: x, y: cy)); bottom.move(to: NSPoint(x: x, y: fy)) }
-            else { top.line(to: NSPoint(x: x, y: cy)); bottom.line(to: NSPoint(x: x, y: fy)) }
-        }
-        top.lineWidth = 1; bottom.lineWidth = 1; top.stroke(); bottom.stroke()
-
-        let sx: CGFloat = 94
-        let ship = NSBezierPath()
-        ship.move(to: NSPoint(x: sx + 7, y: shipY)); ship.line(to: NSPoint(x: sx - 5, y: shipY + 4)); ship.line(to: NSPoint(x: sx - 2, y: shipY)); ship.line(to: NSPoint(x: sx - 5, y: shipY - 4)); ship.close(); ship.lineWidth = 1; ship.stroke()
-        let flame = NSBezierPath(); flame.move(to: NSPoint(x: sx - 3, y: shipY)); flame.line(to: NSPoint(x: sx - 9, y: shipY)); flame.stroke()
-
-        "SCRAMBLE  \(score)".draw(at: NSPoint(x: 35, y: bounds.height - 8), withAttributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .medium), .foregroundColor: green])
-    }
-}
-
-// MARK: - Colossal-Cave-style terminal adventure
+// MARK: - Very Small Cave Adventure
 
 final class AdventureTerminalView: NSView {
     private struct Room {
@@ -1004,16 +939,34 @@ final class AdventureTerminalView: NSView {
     }
 
     private let rooms: [String: Room] = [
-        "mouth": Room(description: "CAVE MOUTH. DARK PASSAGE NORTH.", exits: ["N": "hall"]),
-        "hall": Room(description: "LOW HALL. WATER DRIPS. E OR S.", exits: ["S": "mouth", "E": "chamber"]),
-        "chamber": Room(description: "STONE CHAMBER. BRASS LAMP HERE.", exits: ["W": "hall", "N": "bridge"]),
-        "bridge": Room(description: "NARROW BRIDGE OVER BLACK DEPTHS.", exits: ["S": "chamber", "E": "vault"]),
-        "vault": Room(description: "QUIET VAULT. A SMALL TREASURE GLEAMS.", exits: ["W": "bridge"])
+        "mouth": Room(
+            description: "You stand at the mouth of a limestone cave. Cool air drifts from a narrow passage leading north, and daylight fades quickly behind you.",
+            exits: ["N": "hall"]
+        ),
+        "hall": Room(
+            description: "The passage opens into a low echoing hall. Water ticks from the ceiling into shallow pools. The cave continues east; the entrance lies south.",
+            exits: ["S": "mouth", "E": "chamber"]
+        ),
+        "chamber": Room(
+            description: "This rounded stone chamber smells faintly of wet iron. A battered brass lamp rests on a ledge. Passages lead west and north.",
+            exits: ["W": "hall", "N": "bridge"]
+        ),
+        "bridge": Room(
+            description: "A narrow natural bridge crosses a black fissure. Pebbles vanish soundlessly into the depth below. The chamber is south; a faint glimmer shows east.",
+            exits: ["S": "chamber", "E": "vault"]
+        ),
+        "vault": Room(
+            description: "You enter a quiet mineral vault veined with pale crystal. In a pocket of dry stone, a small treasure gleams. The bridge is west.",
+            exits: ["W": "bridge"]
+        )
     ]
 
     private var room = "mouth"
     private var inventory = Set<String>()
-    private var lines = ["WELCOME TO A VERY SMALL ADVENTURE.", "TAP > TYPE, THEN ENTER A COMMAND."]
+    private var lines = [
+        "WELCOME TO VERY SMALL CAVE ADVENTURE.",
+        "Tap > TYPE, then enter a command. Try LOOK, N, S, E, W, TAKE, INV, or HELP."
+    ]
     private var command = ""
     private var editing = false
     private var localMonitor: Any?
@@ -1029,7 +982,7 @@ final class AdventureTerminalView: NSView {
 
         let typeButton = NSButton(title: "> TYPE", target: self, action: #selector(beginEditing))
         typeButton.font = .monospacedSystemFont(ofSize: 7, weight: .bold)
-        typeButton.frame = NSRect(x: 2, y: 2, width: 55, height: 26)
+        typeButton.frame = NSRect(x: 2, y: 2, width: 58, height: 26)
         addSubview(typeButton)
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -1041,7 +994,9 @@ final class AdventureTerminalView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    deinit { if let monitor = localMonitor { NSEvent.removeMonitor(monitor) } }
+    deinit {
+        if let monitor = localMonitor { NSEvent.removeMonitor(monitor) }
+    }
 
     @objc private func beginEditing() {
         editing = true
@@ -1053,14 +1008,18 @@ final class AdventureTerminalView: NSView {
     override func keyDown(with event: NSEvent) { consumeKey(event) }
 
     private func consumeKey(_ event: NSEvent) {
-        if event.keyCode == 36 || event.keyCode == 76 { submitCommand(); return }
+        if event.keyCode == 36 || event.keyCode == 76 {
+            submitCommand()
+            return
+        }
         if event.keyCode == 51 || event.keyCode == 117 {
             if !command.isEmpty { command.removeLast() }
-            needsDisplay = true; return
+            needsDisplay = true
+            return
         }
         guard let chars = event.charactersIgnoringModifiers else { return }
         for scalar in chars.unicodeScalars where scalar.value >= 32 && scalar.value < 127 {
-            if command.count < 42 { command.append(Character(String(scalar))) }
+            if command.count < 70 { command.append(Character(String(scalar))) }
         }
         needsDisplay = true
     }
@@ -1069,47 +1028,79 @@ final class AdventureTerminalView: NSView {
         let raw = command.trimmingCharacters(in: .whitespacesAndNewlines)
         command = ""
         guard !raw.isEmpty else { needsDisplay = true; return }
-        appendLine("> " + raw.uppercased())
+        appendWrapped("> " + raw.uppercased())
         process(raw.uppercased())
         needsDisplay = true
     }
 
-    private func appendLine(_ text: String) {
-        lines.append(text)
-        while lines.count > 4 { lines.removeFirst() }
+    private func appendWrapped(_ text: String) {
+        let words = text.split(separator: " ").map(String.init)
+        var line = ""
+        for word in words {
+            let candidate = line.isEmpty ? word : line + " " + word
+            if candidate.count > 100 {
+                if !line.isEmpty { lines.append(line) }
+                line = word
+            } else {
+                line = candidate
+            }
+        }
+        if !line.isEmpty { lines.append(line) }
+        while lines.count > 10 { lines.removeFirst() }
     }
 
     private func process(_ input: String) {
         let aliases = ["NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"]
         let normalized = aliases[input] ?? input
         if let destination = rooms[room]?.exits[normalized] {
-            room = destination; appendLine(rooms[room]?.description ?? "DARKNESS."); return
+            room = destination
+            appendWrapped(rooms[room]?.description ?? "Darkness presses close around you.")
+            return
         }
+
         switch normalized {
-        case "LOOK", "L": appendLine(rooms[room]?.description ?? "DARKNESS.")
-        case "TAKE LAMP", "GET LAMP":
-            if room == "chamber" && !inventory.contains("LAMP") { inventory.insert("LAMP"); appendLine("TAKEN: BRASS LAMP.") }
-            else { appendLine("YOU SEE NO LAMP TO TAKE.") }
+        case "LOOK", "L":
+            appendWrapped(rooms[room]?.description ?? "Darkness presses close around you.")
+        case "TAKE LAMP", "GET LAMP", "TAKE":
+            if room == "chamber" && !inventory.contains("LAMP") {
+                inventory.insert("LAMP")
+                appendWrapped("You take the battered brass lamp. It is heavier than it looks, but still seems usable.")
+            } else if room == "vault" && !inventory.contains("TREASURE") {
+                inventory.insert("TREASURE")
+                appendWrapped("You lift the small treasure from its stone pocket. The cave seems suddenly worth the damp socks.")
+            } else {
+                appendWrapped("There is nothing obvious here that you can take.")
+            }
         case "TAKE TREASURE", "GET TREASURE":
-            if room == "vault" && !inventory.contains("TREASURE") { inventory.insert("TREASURE"); appendLine("TREASURE TAKEN. NICE WORK.") }
-            else { appendLine("NO TREASURE HERE.") }
-        case "I", "INV", "INVENTORY": appendLine(inventory.isEmpty ? "YOU ARE EMPTY-HANDED." : "YOU HAVE: " + inventory.sorted().joined(separator: ", "))
-        case "HELP": appendLine("N S E W, LOOK, TAKE LAMP, INV.")
-        default: appendLine("I DON'T UNDERSTAND THAT.")
+            if room == "vault" && !inventory.contains("TREASURE") {
+                inventory.insert("TREASURE")
+                appendWrapped("You lift the small treasure from its stone pocket.")
+            } else {
+                appendWrapped("You see no treasure here to take.")
+            }
+        case "I", "INV", "INVENTORY":
+            appendWrapped(inventory.isEmpty ? "You are carrying nothing." : "You are carrying: " + inventory.sorted().joined(separator: ", ") + ".")
+        case "HELP":
+            appendWrapped("Commands include N, S, E, W, LOOK, TAKE LAMP, TAKE TREASURE, INV, and HELP.")
+        default:
+            appendWrapped("I don't understand that command.")
         }
     }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.black.setFill(); dirtyRect.fill()
         let green = NSColor(calibratedRed: 0.20, green: 1.0, blue: 0.38, alpha: 1)
-        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedSystemFont(ofSize: 5.5, weight: .regular), .foregroundColor: green]
-        let lineHeight: CGFloat = 6.4
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 4.9, weight: .regular),
+            .foregroundColor: green
+        ]
+        let lineHeight: CGFloat = 5.7
         var y = bounds.height - lineHeight
-        for line in lines.suffix(3) {
-            line.draw(at: NSPoint(x: 62, y: y), withAttributes: attrs)
+        for line in lines.suffix(4) {
+            line.draw(at: NSPoint(x: 64, y: y), withAttributes: attrs)
             y -= lineHeight
         }
         let prompt = "> " + command + (editing ? "_" : "▮")
-        prompt.draw(at: NSPoint(x: 62, y: 2), withAttributes: attrs)
+        prompt.draw(at: NSPoint(x: 64, y: 1), withAttributes: attrs)
     }
 }
