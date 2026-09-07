@@ -9,6 +9,7 @@ final class ClipboardShelfView: NSView {
     private var buttons: [NSButton] = []
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
+    private var lastExternalPID: pid_t?
 
     override var intrinsicContentSize: NSSize { NSSize(width: 690, height: 30) }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -26,6 +27,7 @@ final class ClipboardShelfView: NSView {
     private func commonInit() {
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        trackFrontmostApplication()
         buildButtons()
         refreshButtons()
         capturePasteboard()
@@ -63,9 +65,20 @@ final class ClipboardShelfView: NSView {
     }
 
     private func startPolling() {
-        let t = Timer(timeInterval: 0.45, repeats: true) { [weak self] _ in self?.capturePasteboard() }
+        let t = Timer(timeInterval: 0.45, repeats: true) { [weak self] _ in
+            self?.trackFrontmostApplication()
+            self?.capturePasteboard()
+        }
         timer = t
         RunLoop.main.add(t, forMode: .common)
+    }
+
+    private func trackFrontmostApplication() {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        if app.processIdentifier != myPID {
+            lastExternalPID = app.processIdentifier
+        }
     }
 
     private func capturePasteboard() {
@@ -106,6 +119,9 @@ final class ClipboardShelfView: NSView {
 
     @objc private func choose(_ sender: NSButton) {
         guard sender.tag < history.count else { return }
+
+        trackFrontmostApplication()
+        let targetPID = lastExternalPID
         let chosen = history[sender.tag]
 
         history.remove(at: sender.tag)
@@ -118,23 +134,33 @@ final class ClipboardShelfView: NSView {
         pasteboard.setString(chosen, forType: .string)
         lastChangeCount = pasteboard.changeCount
 
-        pasteIntoFrontmostApplication()
+        pasteIntoTarget(pid: targetPID)
     }
 
-    private func pasteIntoFrontmostApplication() {
-        // Permission is requested once when TouchBarpalooza launches. Never
-        // reopen System Settings from a clipping tap. If permission is absent,
-        // the clipping still becomes the current clipboard contents.
-        guard CGPreflightPostEventAccess() else { return }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-            guard let source = CGEventSource(stateID: .hidSystemState),
+    private func pasteIntoTarget(pid: pid_t?) {
+        // Do not gate this on CGPreflightPostEventAccess(). On Xcode-launched
+        // builds macOS can report a stale preflight result even while the current
+        // TouchBarpalooza entry is enabled in Accessibility. Posting the event is
+        // harmless when permission is absent and actually works when TCC allows it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            guard let source = CGEventSource(stateID: .combinedSessionState),
                   let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
                   let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else { return }
+
             down.flags = .maskCommand
             up.flags = .maskCommand
-            down.post(tap: .cghidEventTap)
-            up.post(tap: .cghidEventTap)
+
+            if let pid {
+                down.postToPid(pid)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
+                    up.postToPid(pid)
+                }
+            } else {
+                down.post(tap: .cghidEventTap)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
+                    up.post(tap: .cghidEventTap)
+                }
+            }
         }
     }
 }
