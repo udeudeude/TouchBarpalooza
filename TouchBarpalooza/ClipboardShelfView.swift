@@ -138,27 +138,28 @@ final class ClipboardShelfView: NSView {
     }
 
     private func pasteIntoTarget(pid: pid_t?) {
-        // Do not gate this on CGPreflightPostEventAccess(). On Xcode-launched
-        // builds macOS can report a stale preflight result even while the current
-        // TouchBarpalooza entry is enabled in Accessibility. Posting the event is
-        // harmless when permission is absent and actually works when TCC allows it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            guard let source = CGEventSource(stateID: .combinedSessionState),
-                  let down = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false) else { return }
+        if let pid, let app = NSRunningApplication(processIdentifier: pid) {
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
 
-            down.flags = .maskCommand
-            up.flags = .maskCommand
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            guard let source = CGEventSource(stateID: .hidSystemState),
+                  let commandDown = CGEvent(keyboardEventSource: source, virtualKey: 55, keyDown: true),
+                  let vDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
+                  let vUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false),
+                  let commandUp = CGEvent(keyboardEventSource: source, virtualKey: 55, keyDown: false) else { return }
 
-            if let pid {
-                down.postToPid(pid)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
-                    up.postToPid(pid)
-                }
-            } else {
-                down.post(tap: .cghidEventTap)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
-                    up.post(tap: .cghidEventTap)
+            vDown.flags = .maskCommand
+            vUp.flags = .maskCommand
+
+            commandDown.post(tap: .cghidEventTap)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.012) {
+                vDown.post(tap: .cghidEventTap)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.018) {
+                    vUp.post(tap: .cghidEventTap)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.012) {
+                        commandUp.post(tap: .cghidEventTap)
+                    }
                 }
             }
         }
