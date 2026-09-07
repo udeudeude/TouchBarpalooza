@@ -16,6 +16,7 @@
 		A10000000000000000000008 /* MIDIControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* MIDIControlView.swift */; };
 		A10000000000000000000009 /* MiniGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* MiniGameView.swift */; };
 		A10000000000000000000010 /* KITTScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* KITTScannerView.swift */; };
+		A10000000000000000000011 /* TouchBarExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* TouchBarExtras.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		B10000000000000000000012 /* MIDIControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MIDIControlView.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* MiniGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameView.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* KITTScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KITTScannerView.swift; sourceTree = "<group>"; };
+		B10000000000000000000015 /* TouchBarExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarExtras.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +68,7 @@
 				B10000000000000000000012 /* MIDIControlView.swift */,
 				B10000000000000000000013 /* MiniGameView.swift */,
 				B10000000000000000000014 /* KITTScannerView.swift */,
+				B10000000000000000000015 /* TouchBarExtras.swift */,
 				B10000000000000000000008 /* TouchBarPrivateApi.h */,
 				B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */,
 				B10000000000000000000005 /* Info.plist */,
@@ -149,6 +152,7 @@
 				A10000000000000000000008 /* MIDIControlView.swift in Sources */,
 				A10000000000000000000009 /* MiniGameView.swift in Sources */,
 				A10000000000000000000010 /* KITTScannerView.swift in Sources */,
+				A10000000000000000000011 /* TouchBarExtras.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
