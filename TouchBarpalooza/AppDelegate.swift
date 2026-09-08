@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        requestInputPermissionsIfNeeded()
+        requestInputMonitoringIfNeeded()
 
         let controller = MainViewController()
         self.controller = controller
@@ -28,12 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func requestInputPermissionsIfNeeded() {
+    private func requestInputMonitoringIfNeeded() {
         if !CGPreflightListenEventAccess() {
             _ = CGRequestListenEventAccess()
-        }
-        if !CGPreflightPostEventAccess() {
-            _ = CGRequestPostEventAccess()
         }
     }
 
