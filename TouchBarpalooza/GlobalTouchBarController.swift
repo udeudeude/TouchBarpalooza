@@ -93,7 +93,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .home:
             bar.defaultItemIdentifiers = [
                 .touchBarpaloozaQuit,
-                .touchBarpaloozaLemmings,
                 .touchBarpaloozaClipboard,
                 .touchBarpaloozaAudio,
                 .touchBarpaloozaMIDI,
@@ -220,7 +219,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .pitfall:
             content = PitfallGameViewV3(frame: frame)
         case .et:
-            content = ETPixelGameViewV3(frame: frame)
+            content = ETPixelGameViewV4(frame: frame)
         case .adventure:
             content = AdventureTerminalViewV2(frame: frame)
         case .kitt:
@@ -355,7 +354,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ("Break", #selector(showBreakout)),
             ("Snake", #selector(showSnake)),
             ("Pit", #selector(showPitfall)),
-            ("E.T.", #selector(showET))
+            ("E.T.", #selector(showET)),
+            ("Lemmings", #selector(showLemmingsMenu))
         ]
 
         for (title, action) in specs {
@@ -374,7 +374,27 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         action: Selector
     ) -> NSCustomTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        item.view = NSButton(title: title, target: self, action: action)
+        let button = NSButton(title: title, target: self, action: action)
+
+        let compactWidth: CGFloat?
+        switch identifier {
+        case .touchBarpaloozaEscape:
+            compactWidth = 34
+        case .touchBarpaloozaQuit, .touchBarpaloozaHome:
+            compactWidth = 28
+        default:
+            compactWidth = nil
+        }
+
+        if let compactWidth {
+            let host = FixedTouchBarView(size: NSSize(width: compactWidth, height: 30))
+            button.frame = NSRect(x: 0, y: 1, width: compactWidth, height: 28)
+            button.font = .systemFont(ofSize: identifier == .touchBarpaloozaEscape ? 10 : 13)
+            host.addSubview(button)
+            item.view = host
+        } else {
+            item.view = button
+        }
         return item
     }
 
@@ -723,5 +743,157 @@ wile|want, need, must, should; desire
         return syllables.enumerated().map { pair in
             pair.offset == 0 ? pair.element.uppercased() : pair.element.lowercased()
         }.joined(separator: "-")
+    }
+}
+
+final class ETPixelGameViewV4: NSView {
+    private var playerX: CGFloat = 184
+    private var collected = Set<Int>()
+    private var score = 8975
+
+    private let sprite: [String] = [
+        "..##############",
+        "############..##",
+        "################",
+        "################",
+        "####........####",
+        "####............",
+        "########........",
+        "##########......",
+        "################",
+        "############..##",
+        "############....",
+        "############....",
+        "####..##..##....",
+        "####......####..",
+        "######....######"
+    ]
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 700, height: 30) }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        buildControls()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func buildControls() {
+        let specs: [(String, Selector, NSRect)] = [
+            ("◀", #selector(stepLeft), NSRect(x: 2, y: 2, width: 28, height: 26)),
+            ("TAKE", #selector(takePressed), NSRect(x: 32, y: 2, width: 46, height: 26)),
+            ("▶", #selector(stepRight), NSRect(x: 80, y: 2, width: 28, height: 26))
+        ]
+
+        for (title, action, frame) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 7)
+            button.frame = frame
+            addSubview(button)
+        }
+    }
+
+    private func piecePositions() -> [CGPoint] {
+        let left: CGFloat = 165
+        let right = max(left + 120, bounds.width - 20)
+        let span = right - left
+        return [
+            CGPoint(x: left + span * 0.25, y: 13),
+            CGPoint(x: left + span * 0.55, y: 11),
+            CGPoint(x: left + span * 0.84, y: 15)
+        ]
+    }
+
+    @objc private func stepLeft() {
+        playerX = max(122, playerX - 16)
+        needsDisplay = true
+    }
+
+    @objc private func stepRight() {
+        playerX = min(bounds.width - 26, playerX + 16)
+        needsDisplay = true
+    }
+
+    @objc private func takePressed() { collectNearby() }
+
+    private func collectNearby() {
+        let pieces = piecePositions()
+        for index in pieces.indices where !collected.contains(index) {
+            if abs(pieces[index].x - playerX) < 25 {
+                collected.insert(index)
+                score += 25
+            }
+        }
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let field = NSColor(calibratedRed: 90.0 / 255.0, green: 122.0 / 255.0, blue: 64.0 / 255.0, alpha: 1)
+        field.setFill()
+        dirtyRect.fill()
+
+        NSColor(calibratedRed: 22.0 / 255.0, green: 59.0 / 255.0, blue: 11.0 / 255.0, alpha: 1).setFill()
+        let gameStart: CGFloat = 120
+        let gameWidth = max(1, bounds.width - gameStart)
+        for (fraction, y, width) in [(0.24, 9.0, 0.10), (0.50, 18.0, 0.12), (0.76, 8.0, 0.10)] {
+            NSRect(
+                x: gameStart + gameWidth * fraction,
+                y: y,
+                width: max(28, gameWidth * width),
+                height: 5
+            ).fill()
+        }
+
+        let pieces = piecePositions()
+        for index in pieces.indices where !collected.contains(index) {
+            NSColor(calibratedRed: 0.95, green: 0.78, blue: 0.20, alpha: 1).setFill()
+            let point = pieces[index]
+            if index == 0 {
+                NSRect(x: point.x, y: point.y, width: 6, height: 3).fill()
+                NSRect(x: point.x + 2, y: point.y - 2, width: 2, height: 2).fill()
+            } else if index == 1 {
+                NSRect(x: point.x, y: point.y, width: 3, height: 6).fill()
+                NSRect(x: point.x + 3, y: point.y + 2, width: 3, height: 2).fill()
+            } else {
+                NSRect(x: point.x, y: point.y, width: 6, height: 2).fill()
+                NSRect(x: point.x + 1, y: point.y + 2, width: 4, height: 3).fill()
+            }
+        }
+
+        drawET(at: NSPoint(x: playerX, y: 7))
+
+        let hud = collected.count == 3
+            ? "CALL HOME"
+            : String(format: "%04d  PHONE %d/3", score, collected.count)
+        hud.draw(
+            at: NSPoint(x: 120, y: 1),
+            withAttributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold),
+                .foregroundColor: NSColor(calibratedRed: 0.04, green: 0.20, blue: 0.04, alpha: 1)
+            ]
+        )
+    }
+
+    private func drawET(at origin: NSPoint) {
+        NSColor(
+            calibratedRed: 149.0 / 255.0,
+            green: 206.0 / 255.0,
+            blue: 117.0 / 255.0,
+            alpha: 1
+        ).setFill()
+
+        for (row, line) in sprite.enumerated() {
+            for (column, character) in line.enumerated() where character == "#" {
+                NSRect(
+                    x: origin.x + CGFloat(column),
+                    y: origin.y + CGFloat(sprite.count - 1 - row),
+                    width: 1.05,
+                    height: 1.05
+                ).fill()
+            }
+        }
     }
 }
