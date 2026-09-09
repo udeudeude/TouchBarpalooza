@@ -2,8 +2,7 @@ import AppKit
 
 final class ClipboardShelfView: NSView {
     private static let defaultsKey = "TouchBarpalooza.ClipboardHistory"
-    private static let maximumHistoryCount = 12
-    private static let visibleItemCount = 6
+    private static let capacity = 6
 
     private var history: [String] = []
     private var buttons: [NSButton] = []
@@ -34,6 +33,7 @@ final class ClipboardShelfView: NSView {
         history = Self.cleanedHistory(
             UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? []
         )
+        saveHistory()
 
         buildButtons()
         capturePasteboard(force: true)
@@ -48,14 +48,14 @@ final class ClipboardShelfView: NSView {
         for item in items where !item.isEmpty {
             guard seen.insert(item).inserted else { continue }
             result.append(item)
-            if result.count == maximumHistoryCount { break }
+            if result.count == capacity { break }
         }
 
         return result
     }
 
     private func buildButtons() {
-        for index in 0..<Self.visibleItemCount {
+        for index in 0..<Self.capacity {
             let button = NSButton(title: "—", target: self, action: #selector(choose(_:)))
             button.tag = index
             button.font = .systemFont(ofSize: 9)
@@ -107,8 +107,8 @@ final class ClipboardShelfView: NSView {
         history.removeAll { $0 == text }
         history.insert(text, at: 0)
 
-        if history.count > Self.maximumHistoryCount {
-            history.removeLast(history.count - Self.maximumHistoryCount)
+        if history.count > Self.capacity {
+            history.removeLast(history.count - Self.capacity)
         }
 
         saveHistory()
