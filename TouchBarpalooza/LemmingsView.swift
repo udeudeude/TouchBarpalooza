@@ -411,7 +411,7 @@ final class LemmingsView: NSView {
 
         case .bashing:
             walkers[index].stateTime += dt
-            wallBashProgress = min(1, CGFloat(walkers[index].stateTime / 1.15))
+            wallBashProgress = min(1, CGFloat(walkers[index].stateTime / 1.9))
             let span = wallEnd - wallStart
             walkers[index].x = wallStart - spriteWidth * 0.35 + span * wallBashProgress
             walkers[index].y = groundY - spriteHeight
@@ -516,13 +516,19 @@ final class LemmingsView: NSView {
             demoAssignedBuilder = true
         }
 
-        if bridgeSteps >= builderBrickCount && demoWallFailureSeen && !demoAssignedBasher,
-           let index = walkers.indices.first(where: {
-               $0 != demoWallFailureIndex &&
-               walkers[$0].state == .walking &&
-               walkers[$0].direction > 0 &&
-               walkers[$0].x > wallStart - 70
-           }) {
+        guard bridgeSteps >= builderBrickCount,
+              demoWallFailureSeen,
+              !demoAssignedBasher else { return }
+
+        let candidates = walkers.indices.filter { index in
+            index != demoWallFailureIndex &&
+            walkers[index].state == .walking &&
+            walkers[index].direction > 0 &&
+            walkers[index].x < wallStart
+        }
+
+        if let index = candidates.max(by: { walkers[$0].x < walkers[$1].x }),
+           walkers[index].x >= wallStart - 42 {
             apply(.basher, to: index)
             demoAssignedBasher = true
         }
@@ -575,6 +581,8 @@ final class LemmingsView: NSView {
                 drawOhNoWalker(walker)
             } else if walker.state == .entering {
                 drawEnteringWalker(walker)
+            } else if walker.state == .bashing {
+                drawBasher(walker)
             } else {
                 drawWalker(walker)
             }
@@ -750,6 +758,37 @@ final class LemmingsView: NSView {
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 6, weight: .bold),
                 .foregroundColor: NSColor.white
             ])
+        }
+    }
+
+    private func drawBasher(_ walker: Walker) {
+        drawWalker(walker)
+
+        let swing = sin(CGFloat(walker.stateTime) * 22)
+        let shoulder = NSPoint(x: walker.x + spriteWidth - 1, y: walker.y + 7)
+        let tip = NSPoint(
+            x: shoulder.x + 7,
+            y: shoulder.y + swing * 4
+        )
+
+        let handle = NSBezierPath()
+        handle.move(to: shoulder)
+        handle.line(to: tip)
+        handle.lineWidth = 1.6
+        NSColor(calibratedWhite: 0.88, alpha: 1).setStroke()
+        handle.stroke()
+
+        let head = NSBezierPath()
+        head.move(to: NSPoint(x: tip.x - 2, y: tip.y - 2))
+        head.line(to: NSPoint(x: tip.x + 2, y: tip.y + 2))
+        head.lineWidth = 1.8
+        NSColor(calibratedWhite: 0.96, alpha: 1).setStroke()
+        head.stroke()
+
+        if abs(swing) > 0.72 {
+            NSColor(calibratedRed: 0.82, green: 0.46, blue: 0.12, alpha: 1).setFill()
+            NSRect(x: min(wallEnd - 1, tip.x + 1), y: tip.y, width: 1.5, height: 1.5).fill()
+            NSRect(x: min(wallEnd - 1, tip.x + 3), y: tip.y + 3, width: 1.2, height: 1.2).fill()
         }
     }
 
