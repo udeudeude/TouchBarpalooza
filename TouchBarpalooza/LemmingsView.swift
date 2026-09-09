@@ -90,6 +90,7 @@ final class LemmingsView: NSView {
     private var demoAssignedBuilder = false
     private var demoWallFailureSeen = false
     private var demoWallFailureIndex: Int?
+    private var demoWallFailureTime: TimeInterval?
     private var demoAssignedBasher = false
     private var demoNuked = false
 
@@ -343,6 +344,7 @@ final class LemmingsView: NSView {
                         demoWallFailureSeen = true
                         if demoWallFailureIndex == nil {
                             demoWallFailureIndex = index
+                            demoWallFailureTime = elapsed
                         }
                     }
                     walkers[index].direction *= -1
@@ -411,7 +413,7 @@ final class LemmingsView: NSView {
 
         case .bashing:
             walkers[index].stateTime += dt
-            wallBashProgress = min(1, CGFloat(walkers[index].stateTime / 1.9))
+            wallBashProgress = min(1, CGFloat(walkers[index].stateTime / 2.2))
             let span = wallEnd - wallStart
             walkers[index].x = wallStart - spriteWidth * 0.35 + span * wallBashProgress
             walkers[index].y = groundY - spriteHeight
@@ -520,18 +522,28 @@ final class LemmingsView: NSView {
               demoWallFailureSeen,
               !demoAssignedBasher else { return }
 
+        let failedAt = demoWallFailureTime ?? elapsed
+        guard elapsed - failedAt >= 0.30 else { return }
+
         let candidates = walkers.indices.filter { index in
             index != demoWallFailureIndex &&
             walkers[index].state == .walking &&
-            walkers[index].direction > 0 &&
-            walkers[index].x < wallStart
+            walkers[index].x > gapEnd - 8 &&
+            walkers[index].x < wallEnd + 4
         }
 
-        if let index = candidates.max(by: { walkers[$0].x < walkers[$1].x }),
-           walkers[index].x >= wallStart - 42 {
-            apply(.basher, to: index)
-            demoAssignedBasher = true
-        }
+        guard let index = candidates.min(by: {
+            abs(walkers[$0].x - wallStart) < abs(walkers[$1].x - wallStart)
+        }) else { return }
+
+        // By the time the AI runs, a trailing lemming can already have bounced
+        // off the wall in the same tick. Force that chosen second lemming back
+        // toward the wall and start the Basher job explicitly.
+        walkers[index].direction = 1
+        walkers[index].x = wallStart - spriteWidth * 0.45
+        walkers[index].y = groundY - spriteHeight
+        apply(.basher, to: index)
+        demoAssignedBasher = true
     }
 
     private func apply(_ skill: Skill, to index: Int) {
