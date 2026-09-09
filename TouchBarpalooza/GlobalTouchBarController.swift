@@ -838,7 +838,12 @@ final class ETPixelGameViewV4: NSView {
         NSColor(calibratedRed: 22.0 / 255.0, green: 59.0 / 255.0, blue: 11.0 / 255.0, alpha: 1).setFill()
         let gameStart: CGFloat = 120
         let gameWidth = max(1, bounds.width - gameStart)
-        for (fraction, y, width) in [(0.24, 9.0, 0.10), (0.50, 18.0, 0.12), (0.76, 8.0, 0.10)] {
+        let pitSpecs: [(CGFloat, CGFloat, CGFloat)] = [
+            (0.24, 9, 0.10),
+            (0.50, 18, 0.12),
+            (0.76, 8, 0.10)
+        ]
+        for (fraction, y, width) in pitSpecs {
             NSRect(
                 x: gameStart + gameWidth * fraction,
                 y: y,
