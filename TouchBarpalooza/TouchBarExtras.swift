@@ -46,7 +46,6 @@ private final class DirectLifeCanvas: NSView {
     }
 
     private func configureTouch() {
-        acceptsTouchEvents = true
         allowedTouchTypes = [.direct]
         wantsRestingTouches = true
     }
