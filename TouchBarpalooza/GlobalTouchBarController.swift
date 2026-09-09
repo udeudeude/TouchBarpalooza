@@ -391,18 +391,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     @objc private func sendEscape() {
-        let myPID = ProcessInfo.processInfo.processIdentifier
-
-        if let app = NSWorkspace.shared.frontmostApplication,
-           app.processIdentifier != myPID {
-            let target = AXUIElementCreateApplication(app.processIdentifier)
-            let down = AXUIElementPostKeyboardEvent(target, 0, 53, true)
-            let up = AXUIElementPostKeyboardEvent(target, 0, 53, false)
-            if down == .success && up == .success {
-                return
-            }
-        }
-
         guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: false) else {
             return
