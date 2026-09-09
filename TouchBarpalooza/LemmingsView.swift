@@ -89,6 +89,7 @@ final class LemmingsView: NSView {
     private var demoGapFailureSeen = false
     private var demoAssignedBuilder = false
     private var demoWallFailureSeen = false
+    private var demoWallFailureIndex: Int?
     private var demoAssignedBasher = false
     private var demoNuked = false
 
@@ -190,9 +191,6 @@ final class LemmingsView: NSView {
         guard !demoNuked || gameMode == .interactive else { return }
         if gameMode == .demo { demoNuked = true }
 
-        // The original nuke starts the five-second Exploder counters one
-        // lemming at a time. Lemmings keep doing their current jobs during the
-        // countdown, then stop for their brief "Oh no!" pose before exploding.
         var delay: TimeInterval = 0
         for index in walkers.indices where isNukeEligible(walkers[index]) {
             walkers[index].nukeDelay = delay
@@ -240,7 +238,6 @@ final class LemmingsView: NSView {
            elapsed >= nextSpawnTime {
             walkers.append(Walker(x: entranceDropX, y: 6))
             spawnedCount += 1
-            // One release interval for every lemming, including the first three.
             nextSpawnTime = elapsed + spawnInterval
         }
 
@@ -344,6 +341,9 @@ final class LemmingsView: NSView {
                 } else {
                     if gameMode == .demo && nextX >= wallStart - 4 && nextX <= wallEnd + 4 {
                         demoWallFailureSeen = true
+                        if demoWallFailureIndex == nil {
+                            demoWallFailureIndex = index
+                        }
                     }
                     walkers[index].direction *= -1
                 }
@@ -452,8 +452,6 @@ final class LemmingsView: NSView {
             }
 
         case .bombing:
-            // Classic final beat: the lemming stops, clutches its head/ears and
-            // bobs for the short "Oh no!" animation before the blast.
             walkers[index].stateTime += dt
             if walkers[index].stateTime >= ohNoDuration {
                 if abs(walkers[index].x - wallStart) < 34 { wallBashProgress = 1 }
@@ -510,7 +508,9 @@ final class LemmingsView: NSView {
     private func runDemoAI() {
         if demoGapFailureSeen && !demoAssignedBuilder,
            let index = walkers.indices.first(where: {
-               walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > gapStart - 26
+               walkers[$0].state == .walking &&
+               walkers[$0].direction > 0 &&
+               walkers[$0].x > gapStart - 26
            }) {
             apply(.builder, to: index)
             demoAssignedBuilder = true
@@ -518,7 +518,10 @@ final class LemmingsView: NSView {
 
         if bridgeSteps >= builderBrickCount && demoWallFailureSeen && !demoAssignedBasher,
            let index = walkers.indices.first(where: {
-               walkers[$0].state == .walking && walkers[$0].direction > 0 && walkers[$0].x > wallStart - 25
+               $0 != demoWallFailureIndex &&
+               walkers[$0].state == .walking &&
+               walkers[$0].direction > 0 &&
+               walkers[$0].x > wallStart - 70
            }) {
             apply(.basher, to: index)
             demoAssignedBasher = true
@@ -756,8 +759,6 @@ final class LemmingsView: NSView {
         pose.y += beat == 0 ? 0 : -1
         drawWalker(pose)
 
-        // Hands at the sides of the head, alternating slightly from frame to
-        // frame to evoke the original ear-covering "Oh no!" animation.
         let skin = NSColor(calibratedRed: 0.98, green: 0.76, blue: 0.58, alpha: 1)
         let blue = NSColor(calibratedRed: 0.10, green: 0.35, blue: 0.98, alpha: 1)
         let x = floor(pose.x)
@@ -776,15 +777,16 @@ final class LemmingsView: NSView {
         let fade = max(0, 1 - phase * 0.65)
         let outer = 4 + phase * 11
 
-        // Original Lemmings explosions read as a jagged red/orange star with a
-        // hot yellow-white core, surrounded by a spray of tiny colored pixels.
         let star = NSBezierPath()
         let points = 16
         for i in 0..<points {
             let angle = -CGFloat.pi / 2 + CGFloat(i) * (2 * CGFloat.pi / CGFloat(points))
             let radius = i % 2 == 0 ? outer : outer * 0.45
-            let p = NSPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
-            if i == 0 { star.move(to: p) } else { star.line(to: p) }
+            let point = NSPoint(
+                x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius
+            )
+            if i == 0 { star.move(to: point) } else { star.line(to: point) }
         }
         star.close()
         NSColor(calibratedRed: 1.0, green: 0.13, blue: 0.02, alpha: fade).setFill()
@@ -792,10 +794,21 @@ final class LemmingsView: NSView {
 
         let midRadius = outer * 0.62
         NSColor(calibratedRed: 1.0, green: 0.56, blue: 0.02, alpha: fade).setFill()
-        NSBezierPath(ovalIn: NSRect(x: center.x - midRadius / 2, y: center.y - midRadius / 2, width: midRadius, height: midRadius)).fill()
+        NSBezierPath(ovalIn: NSRect(
+            x: center.x - midRadius / 2,
+            y: center.y - midRadius / 2,
+            width: midRadius,
+            height: midRadius
+        )).fill()
+
         let core = max(2, outer * 0.28)
         NSColor(calibratedRed: 1.0, green: 1.0, blue: 0.72, alpha: fade).setFill()
-        NSBezierPath(ovalIn: NSRect(x: center.x - core / 2, y: center.y - core / 2, width: core, height: core)).fill()
+        NSBezierPath(ovalIn: NSRect(
+            x: center.x - core / 2,
+            y: center.y - core / 2,
+            width: core,
+            height: core
+        )).fill()
 
         let sparkColors = [
             NSColor(calibratedRed: 1.0, green: 0.80, blue: 0.04, alpha: fade),
@@ -804,6 +817,7 @@ final class LemmingsView: NSView {
             NSColor(calibratedRed: 0.18, green: 0.55, blue: 1.0, alpha: fade),
             NSColor(calibratedWhite: 1.0, alpha: fade)
         ]
+
         for i in 0..<20 {
             let angle = CGFloat(i) * 2.399963 + 0.25
             let reach = phase * (6 + CGFloat((i * 7) % 9))
