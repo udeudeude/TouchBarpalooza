@@ -340,7 +340,9 @@ final class LemmingsView: NSView {
                     walkers[index].y = nextSurface - spriteHeight
                     walkers[index].walkDistance += abs(dx)
                 } else {
-                    if gameMode == .demo && nextX >= wallStart - 4 && nextX <= wallEnd + 4 {
+                    if gameMode == .demo &&
+                       nextX + spriteWidth / 2 >= wallStart - 4 &&
+                       nextX + spriteWidth / 2 <= wallEnd + 4 {
                         demoWallFailureSeen = true
                         if demoWallFailureIndex == nil {
                             demoWallFailureIndex = index
