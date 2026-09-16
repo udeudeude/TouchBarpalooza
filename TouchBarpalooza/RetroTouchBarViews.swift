@@ -338,9 +338,9 @@ final class PipesSaverView: NSView {
         let turned = newDirection != head.direction
         var joint: JointKind?
         if turned {
-            // Windows' mixed-joint mode: 1/1000 Utah teapot; otherwise,
-            // Windows NT 4+ uses 1/3 ball joints and 2/3 elbows.
-            if Int.random(in: 0..<1000) == 0 {
+            // TouchBarpalooza uses a 1/100 Utah-teapot chance; otherwise,
+            // Windows NT 4+ mixed-joint proportions remain 1/3 ball, 2/3 elbow.
+            if Int.random(in: 0..<100) == 0 {
                 joint = .teapot
             } else if Int.random(in: 0..<3) == 0 {
                 joint = .ball
