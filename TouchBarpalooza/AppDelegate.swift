@@ -1,6 +1,38 @@
 import AppKit
 import CoreGraphics
 
+extension NSButton {
+    var periodicDelay: Float {
+        get {
+            var delay: Float = 0
+            var interval: Float = 0
+            getPeriodicDelay(&delay, interval: &interval)
+            return delay
+        }
+        set {
+            var delay: Float = 0
+            var interval: Float = 0
+            getPeriodicDelay(&delay, interval: &interval)
+            setPeriodicDelay(newValue, interval: interval)
+        }
+    }
+
+    var periodicInterval: Float {
+        get {
+            var delay: Float = 0
+            var interval: Float = 0
+            getPeriodicDelay(&delay, interval: &interval)
+            return interval
+        }
+        set {
+            var delay: Float = 0
+            var interval: Float = 0
+            getPeriodicDelay(&delay, interval: &interval)
+            setPeriodicDelay(delay, interval: newValue)
+        }
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
     private var controller: MainViewController?
