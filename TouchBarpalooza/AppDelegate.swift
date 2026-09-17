@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let aboutItem = NSMenuItem(
             title: "About TouchBarpalooza",
-            action: #selector(showAboutPanel),
+            action: #selector(showAboutPanel(_:)),
             keyEquivalent: ""
         )
         aboutItem.target = self
@@ -101,8 +101,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    @objc private func showAboutPanel() {
-        NSApp.orderFrontStandardAboutPanel(nil)
+    @objc private func showAboutPanel(_ sender: Any?) {
+        NSApp.orderFrontStandardAboutPanel(sender)
         NSApp.activate(ignoringOtherApps: true)
     }
 
