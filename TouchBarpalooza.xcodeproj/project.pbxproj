@@ -17,8 +17,9 @@
 		A10000000000000000000009 /* MiniGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* MiniGameView.swift */; };
 		A10000000000000000000010 /* KITTScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* KITTScannerView.swift */; };
 		A10000000000000000000011 /* TouchBarExtras.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* TouchBarExtras.swift */; };
-		A10000000000000000000012 /* RetroTouchBarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* RetroTouchBarViews.swift */; };
+		A10000000000000000000012 /* RetroSaversRefined.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* RetroSaversRefined.swift */; };
 		A10000000000000000000013 /* LegacyTouchBarViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* LegacyTouchBarViews.swift */; };
+		A10000000000000000000014 /* MarioWorld11View.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* MarioWorld11View.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,8 +38,9 @@
 		B10000000000000000000013 /* MiniGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniGameView.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* KITTScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KITTScannerView.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* TouchBarExtras.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchBarExtras.swift; sourceTree = "<group>"; };
-		B10000000000000000000016 /* RetroTouchBarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetroTouchBarViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000016 /* RetroSaversRefined.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetroSaversRefined.swift; sourceTree = "<group>"; };
 		B10000000000000000000017 /* LegacyTouchBarViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyTouchBarViews.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* MarioWorld11View.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarioWorld11View.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,7 +75,8 @@
 				B10000000000000000000013 /* MiniGameView.swift */,
 				B10000000000000000000014 /* KITTScannerView.swift */,
 				B10000000000000000000015 /* TouchBarExtras.swift */,
-				B10000000000000000000016 /* RetroTouchBarViews.swift */,
+				B10000000000000000000016 /* RetroSaversRefined.swift */,
+				B10000000000000000000018 /* MarioWorld11View.swift */,
 				B10000000000000000000017 /* LegacyTouchBarViews.swift */,
 				B10000000000000000000008 /* TouchBarPrivateApi.h */,
 				B10000000000000000000009 /* TouchBarpalooza-Bridging-Header.h */,
@@ -159,7 +162,8 @@
 				A10000000000000000000009 /* MiniGameView.swift in Sources */,
 				A10000000000000000000010 /* KITTScannerView.swift in Sources */,
 				A10000000000000000000011 /* TouchBarExtras.swift in Sources */,
-				A10000000000000000000012 /* RetroTouchBarViews.swift in Sources */,
+				A10000000000000000000012 /* RetroSaversRefined.swift in Sources */,
+				A10000000000000000000014 /* MarioWorld11View.swift in Sources */,
 				A10000000000000000000013 /* LegacyTouchBarViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -177,7 +181,7 @@
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
