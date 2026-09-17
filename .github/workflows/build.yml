@@ -1,0 +1,22 @@
+name: Build TouchBarpalooza
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Debug app
+        run: |
+          xcodebuild \
+            -project TouchBarpalooza.xcodeproj \
+            -target TouchBarpalooza \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
