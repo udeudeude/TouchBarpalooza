@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        configureApplicationMenu()
         requestInputMonitoringIfNeeded()
 
         let controller = MainViewController()
@@ -50,13 +51,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "TouchBarpalooza"
+        window.title = "TouchBarpalooza \(shortVersion)"
         window.center()
         window.contentViewController = controller
         window.makeKeyAndOrderFront(nil)
         self.window = window
 
         globalTouchBarController.start()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    private func configureApplicationMenu() {
+        let mainMenu = NSMenu()
+        let applicationMenuItem = NSMenuItem()
+        let applicationMenu = NSMenu(title: "TouchBarpalooza")
+
+        let aboutItem = NSMenuItem(
+            title: "About TouchBarpalooza",
+            action: #selector(showAboutPanel),
+            keyEquivalent: ""
+        )
+        aboutItem.target = self
+        applicationMenu.addItem(aboutItem)
+        applicationMenu.addItem(.separator())
+
+        let hideItem = NSMenuItem(
+            title: "Hide TouchBarpalooza",
+            action: #selector(NSApplication.hide(_:)),
+            keyEquivalent: "h"
+        )
+        hideItem.target = NSApp
+        applicationMenu.addItem(hideItem)
+        applicationMenu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit TouchBarpalooza",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = NSApp
+        applicationMenu.addItem(quitItem)
+
+        applicationMenuItem.submenu = applicationMenu
+        mainMenu.addItem(applicationMenuItem)
+        NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func showAboutPanel() {
+        NSApp.orderFrontStandardAboutPanel(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
