@@ -96,10 +96,10 @@ final class TouchBarPlatformerView: NSView {
 
     private func buildControls() {
         let left=NSButton(title:"◀",target:self,action:#selector(stepLeft)); left.frame=NSRect(x:2,y:2,width:25,height:26); left.isContinuous=true; left.periodicDelay=0.18; left.periodicInterval=0.055; addSubview(left)
-        let jump=NSButton(title:"JUMP",target:self,action:#selector(jumpPressed)); jump.font=.systemFont(ofSize:7); jump.frame=NSRect(x:29,y:2,width:40,height:26); addSubview(jump)
+        let jump=NSButton(title:"JUMP",target:self,action:#selector(jumpPressed)); jump.font = .systemFont(ofSize:7); jump.frame=NSRect(x:29,y:2,width:40,height:26); addSubview(jump)
         let right=NSButton(title:"▶",target:self,action:#selector(stepRight)); right.frame=NSRect(x:71,y:2,width:25,height:26); right.isContinuous=true; right.periodicDelay=0.18; right.periodicInterval=0.055; addSubview(right)
-        let run=NSButton(title:"RUN",target:self,action:#selector(toggleRun(_:))); run.font=.systemFont(ofSize:6.5); run.frame=NSRect(x:98,y:2,width:27,height:26); run.setButtonType(.pushOnPushOff); addSubview(run)
-        let keys=NSButton(title:"KEYS",target:self,action:#selector(focusKeyboard)); keys.font=.monospacedSystemFont(ofSize:6.2,weight:.bold); keys.frame=NSRect(x:127,y:2,width:29,height:26); keys.toolTip="Switch keyboard control to TouchBarpalooza"; addSubview(keys)
+        let run=NSButton(title:"RUN",target:self,action:#selector(toggleRun(_:))); run.font = .systemFont(ofSize:6.5); run.frame=NSRect(x:98,y:2,width:27,height:26); run.setButtonType(.pushOnPushOff); addSubview(run)
+        let keys=NSButton(title:"KEYS",target:self,action:#selector(focusKeyboard)); keys.font = .monospacedSystemFont(ofSize:6.2,weight:.bold); keys.frame=NSRect(x:127,y:2,width:29,height:26); keys.toolTip="Switch keyboard control to TouchBarpalooza"; addSubview(keys)
     }
 
     @objc private func stepLeft(){playerX=max(0,playerX-18);facing = -1;needsDisplay=true}
