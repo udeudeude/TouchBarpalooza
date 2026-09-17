@@ -52,7 +52,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "TouchBarpalooza \(shortVersion)"
-        window.center()
+        window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName("TouchBarpaloozaMainWindow")
+        if !window.setFrameUsingName("TouchBarpaloozaMainWindow") {
+            window.center()
+        }
         window.contentViewController = controller
         window.makeKeyAndOrderFront(nil)
         self.window = window
