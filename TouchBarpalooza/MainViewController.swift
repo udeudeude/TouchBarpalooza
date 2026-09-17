@@ -28,6 +28,10 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
 
     private var mode: Mode = .home
 
+    private var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
     override func loadView() {
         let root = TouchBarHostView()
         root.wantsLayer = true
@@ -37,7 +41,9 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
 
-        let subtitle = NSTextField(labelWithString: "The interesting part is on the Touch Bar.")
+        let subtitle = NSTextField(
+            labelWithString: "Version \(shortVersion). The interesting part is on the Touch Bar."
+        )
         subtitle.font = .systemFont(ofSize: 14)
         subtitle.textColor = .secondaryLabelColor
         subtitle.alignment = .center
@@ -172,7 +178,7 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
     }
 
     @objc private func showAbout() {
-        mode = .placeholder("TouchBarpalooza v0.1")
+        mode = .placeholder("TouchBarpalooza v\(shortVersion)")
         installTouchBar()
     }
 }
