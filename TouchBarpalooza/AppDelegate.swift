@@ -77,6 +77,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         aboutItem.target = self
         applicationMenu.addItem(aboutItem)
+
+        let showWindowItem = NSMenuItem(
+            title: "Show TouchBarpalooza Window",
+            action: #selector(showMainWindow(_:)),
+            keyEquivalent: ""
+        )
+        showWindowItem.target = self
+        applicationMenu.addItem(showWindowItem)
         applicationMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(
@@ -106,10 +114,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func showMainWindow(_ sender: Any?) {
+        window?.makeKeyAndOrderFront(sender)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     private func requestInputMonitoringIfNeeded() {
         if !CGPreflightListenEventAccess() {
             _ = CGRequestListenEventAccess()
         }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showMainWindow(sender)
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
