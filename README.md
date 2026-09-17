@@ -6,60 +6,98 @@ TouchBarpalooza includes its own **persistent system-modal Touch Bar host**, so 
 
 ## Current launcher
 
-- **Lemmings**
-- **Clipboard**
-- **Audio**
-- **MIDI**
-- **Games**
-- **KITT**
+The persistent launcher currently includes:
 
-## Lemmings
+- Clipboard history
+- live audio spectrum
+- MIDI controls
+- Games
+- classic screensaver recreations
+- KITT scanner
+- Toki Pona study tools
+- interactive koi pond
 
-The Lemmings module now has two modes:
+Compact `esc`, Home, and Quit controls are used where appropriate so the Touch Bar content has as much room as possible.
 
-- **PLAY**: interactive one-dimensional Lemmings-inspired game.
-- **DEMO**: autonomous game that plays itself so the Touch Bar can simply be watched.
+## Games
 
-The current playable pass includes larger 8-frame walkers, a trapdoor entrance, exit, terrain, pits and walls, falling, turning, release-rate adjustment, pause, nuke, OUT/IN counters, and eight skill selectors: climber, floater, bomber, blocker, builder, basher, miner, and digger. Tap a lemming after choosing a skill to assign it.
+The Games menu currently includes, in chronological order:
 
-No original *Lemmings* artwork or game assets are included. The graphics are newly drawn pixel approximations inspired by the 1991 visual language.
+- Conway's Life
+- Pong
+- Colossal Cave Adventure-style terminal
+- Breakout
+- Snake
+- Pitfall-style platforming
+- E.T.-style Touch Bar game
+- Super Mario Bros. World 1-1 miniature
+- Lemmings
+
+Lemmings has two modes:
+
+- **PLAY**: interactive one-dimensional Lemmings-inspired game with eight skill selectors and nuke.
+- **DEMO**: autonomous sequence intended to be watched directly on the Touch Bar.
+
+No original commercial game assets are bundled. Graphics are drawn in code or reconstructed as small original approximations for this Touch Bar experiment.
+
+## Savers
+
+The Savers menu currently includes:
+
+- DVD VIDEO bouncing logo
+- Windows 3D Pipes-style saver, including a rare Utah teapot joint
+- After Dark Flying Toasters-style saver
 
 ## Clipboard
 
-Keeps a rolling shelf of recent text clipboard entries. Tap an entry to make it the current clipboard contents again.
+Keeps the six most recent text clipboard entries. Tap an entry to make it the current clipboard contents again.
 
 ## Audio
 
-A live microphone-input VU meter and coarse spectrum analyzer. macOS will request microphone permission the first time this module is opened.
+A live microphone-input VU meter and coarse spectrum analyzer. macOS requests microphone permission the first time this module is opened.
 
 ## MIDI
 
 Four Touch Bar sliders send MIDI CC 20–23, values 0–127, to the first available MIDI destination.
 
-## Games
-
-Current mini-games:
-
-- Pong
-- Snake
-- Breakout
-- Conway's Life
-
-The games are deliberately Touch-Bar-shaped. Touch/drag affects the paddle, snake direction, Breakout paddle, or Life cells depending on the game.
-
 ## KITT
 
 A persistent red back-and-forth scanner inspired by the front scanner on KITT from *Knight Rider*.
 
-## Run it
+## Run from Xcode
 
 1. Clone this repository on a Touch Bar Mac with Xcode installed.
 2. Open `TouchBarpalooza.xcodeproj`.
-3. Select the **TouchBarpalooza** scheme and **My Mac**.
+3. Select the **TouchBarpalooza** target and **My Mac**.
 4. Quit or disable BetterTouchTool while testing the standalone host so the two programs do not compete for the Touch Bar.
 5. Press Run.
 
-Closing TouchBarpalooza's window does not quit the process, because the Touch Bar host is intended to keep running. Quit the app normally from its application menu or Dock when you want to stop it.
+Closing TouchBarpalooza's window does not quit the process, because the Touch Bar host is intended to keep running. Quit from the TouchBarpalooza application menu, Dock, or the Touch Bar Quit control when you want to stop it.
+
+## Build a standalone app
+
+A Release build can be created without Xcode launching the app:
+
+```bash
+bash scripts/build-local-release.sh
+```
+
+That produces:
+
+```text
+dist/TouchBarpalooza.app
+dist/TouchBarpalooza.zip
+```
+
+To build, replace `/Applications/TouchBarpalooza.app`, and launch the new copy:
+
+```bash
+bash scripts/build-local-release.sh --install
+```
+
+The standalone app is only a built snapshot. Development can continue normally afterward and newer builds can replace it at any time.
+
+For Xcode Archive, signing, notarization, and future public distribution notes, see [`DISTRIBUTION.md`](DISTRIBUTION.md).
 
 ## Private API note
 
@@ -67,7 +105,7 @@ Persistent ownership of the Touch Bar is not exposed by Apple's public AppKit AP
 
 Consequences:
 
-- This is appropriate for experimentation on a fixed Touch Bar Mac, but not for Mac App Store distribution.
+- This is appropriate for direct distribution and experimentation on Touch Bar Macs, but not for Mac App Store distribution.
 - A macOS update could change or remove these private interfaces.
 - The standalone host is isolated in `GlobalTouchBarController.swift` and `TouchBarPrivateApi.h` so the rest of the project remains ordinary AppKit code.
 
