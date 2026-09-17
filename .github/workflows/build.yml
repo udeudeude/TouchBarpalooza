@@ -8,15 +8,19 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+    name: ${{ matrix.configuration }} build
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build Debug app
+      - name: Build app
         run: |
           xcodebuild \
             -project TouchBarpalooza.xcodeproj \
             -target TouchBarpalooza \
-            -configuration Debug \
+            -configuration "${{ matrix.configuration }}" \
             CODE_SIGNING_ALLOWED=NO \
             build
