@@ -1,23 +1,27 @@
 # TouchBarpalooza
 
-A native macOS playground for Touch Bar-equipped MacBook Pros.
+[![Build TouchBarpalooza](https://github.com/udeudeude/TouchBarpalooza/actions/workflows/build.yml/badge.svg)](https://github.com/udeudeude/TouchBarpalooza/actions/workflows/build.yml)
 
-TouchBarpalooza includes its own **persistent system-modal Touch Bar host**, so it can remain visible while Safari, Finder, Xcode, or another application is frontmost. BetterTouchTool is not required.
+**TouchBarpalooza is a standalone native macOS utility that turns the physical Touch Bar into a persistent playground for games, visualizers, utilities, study tools, and retro experiments.**
 
-## Current launcher
+It includes its own **system-modal Touch Bar host**, so the TouchBarpalooza interface can stay visible while Safari, Finder, Xcode, or another application is frontmost. BetterTouchTool is not required.
 
-The persistent launcher currently includes:
+The current standalone build is **TouchBarpalooza 0.3**. It has been built as a universal Mac application for both Intel and Apple silicon and tested running directly from `/Applications` on a physical Touch Bar Mac.
 
-- Clipboard history
-- live audio spectrum
-- MIDI controls
-- Games
-- classic screensaver recreations
-- KITT scanner
-- Toki Pona study tools
-- interactive koi pond
+## What is on the Touch Bar
 
-Compact `esc`, Home, and Quit controls are used where appropriate so the Touch Bar content has as much room as possible.
+The main launcher currently includes:
+
+- **Clipboard**: the six most recent text clipboard entries
+- **Spectrum**: live microphone VU meter and coarse spectrum analyzer
+- **MIDI**: four Touch Bar sliders sending MIDI control-change values
+- **Games**
+- **Savers**
+- **KITT**: red back-and-forth scanner
+- **Toki Pona** study tools
+- **Pond**: interactive koi and water ripples
+
+Compact `esc`, Home, and Quit controls are used where appropriate to preserve Touch Bar space.
 
 ## Games
 
@@ -33,92 +37,90 @@ The Games menu currently includes, in chronological order:
 - Super Mario Bros. World 1-1 miniature
 - Lemmings
 
+### Lemmings
+
 Lemmings has two modes:
 
-- **PLAY**: interactive one-dimensional Lemmings-inspired game with eight skill selectors and nuke.
-- **DEMO**: autonomous sequence intended to be watched directly on the Touch Bar.
+- **PLAY**: interactive one-dimensional game with the eight classic skill categories and nuke
+- **DEMO**: an autonomous sequence designed to be watched directly on the Touch Bar
 
-No original commercial game assets are bundled. Graphics are drawn in code or reconstructed as small original approximations for this Touch Bar experiment.
+The project does not bundle original commercial game assets. Graphics are drawn in code or recreated specifically for this Touch Bar experiment.
 
 ## Savers
 
 The Savers menu currently includes:
 
-- DVD VIDEO bouncing logo
-- Windows 3D Pipes-style saver, including a rare Utah teapot joint
-- After Dark Flying Toasters-style saver
+- **DVD VIDEO** bouncing logo
+- **3D Pipes** recreation with a Utah teapot on roughly 1 in 100 turning joints
+- **Flying Toasters** recreation inspired by After Dark
 
-## Clipboard
+## Standalone app
 
-Keeps the six most recent text clipboard entries. Tap an entry to make it the current clipboard contents again.
+TouchBarpalooza now works as a normal standalone Mac application. It does not need Xcode to remain running.
 
-## Audio
-
-A live microphone-input VU meter and coarse spectrum analyzer. macOS requests microphone permission the first time this module is opened.
-
-## MIDI
-
-Four Touch Bar sliders send MIDI CC 20–23, values 0–127, to the first available MIDI destination.
-
-## KITT
-
-A persistent red back-and-forth scanner inspired by the front scanner on KITT from *Knight Rider*.
-
-## Run from Xcode
-
-1. Clone this repository on a Touch Bar Mac with Xcode installed.
-2. Open `TouchBarpalooza.xcodeproj`.
-3. Select the **TouchBarpalooza** target and **My Mac**.
-4. Quit or disable BetterTouchTool while testing the standalone host so the two programs do not compete for the Touch Bar.
-5. Press Run.
-
-Closing TouchBarpalooza's window does not quit the process, because the Touch Bar host is intended to keep running. Quit from the TouchBarpalooza application menu, Dock, or the Touch Bar Quit control when you want to stop it.
-
-## Build a standalone app
-
-A Release build can be created without Xcode launching the app:
+From the repository root:
 
 ```bash
 bash scripts/build-local-release.sh
 ```
 
-That produces:
+That creates:
 
 ```text
 dist/TouchBarpalooza.app
 dist/TouchBarpalooza.zip
 ```
 
-To build, replace `/Applications/TouchBarpalooza.app`, and launch the new copy:
+To build the Release version, replace the copy in `/Applications`, and launch it:
 
 ```bash
 bash scripts/build-local-release.sh --install
 ```
 
-The standalone app is only a built snapshot. Development can continue normally afterward and newer builds can replace it at any time.
+The release script verifies the app bundle, version, bundle identifier, processor architectures, private framework linkage, and local code signature.
 
-For Xcode Archive, signing, notarization, and future public distribution notes, see [`DISTRIBUTION.md`](DISTRIBUTION.md).
+In standalone use, TouchBarpalooza can operate without keeping a desktop window in the way. The macOS application menu remains available for normal application commands such as About and Quit.
+
+## Develop from Xcode
+
+1. Clone this repository on a Touch Bar Mac with Xcode installed.
+2. Open `TouchBarpalooza.xcodeproj`.
+3. Select **TouchBarpalooza** and **My Mac**.
+4. Quit or disable BetterTouchTool while testing the standalone host so the two programs do not compete for the Touch Bar.
+5. Press **Command-R**.
+
+Development can continue normally after installing the standalone app. A built `.app` is only a snapshot of the source at that point. Later changes can be built and installed over it.
+
+Every push to `main` is also checked with both Debug and Release macOS builds on GitHub Actions.
+
+## Compatibility
+
+Current project settings:
+
+- physical Touch Bar required
+- macOS 10.15 or later
+- Swift 5
+- universal Intel (`x86_64`) + Apple silicon (`arm64`) builds
+
+Actual Touch Bar behavior still needs hardware testing because the persistent host uses private macOS interfaces.
 
 ## Private API note
 
-Persistent ownership of the Touch Bar is not exposed by Apple's public AppKit API. TouchBarpalooza therefore uses private system-modal Touch Bar interfaces plus `DFRFoundation` for its Control Strip entry.
+Persistent ownership of the Touch Bar is not exposed through Apple's public AppKit API. TouchBarpalooza therefore uses private system-modal Touch Bar interfaces plus `DFRFoundation`.
 
 Consequences:
 
-- This is appropriate for direct distribution and experimentation on Touch Bar Macs, but not for Mac App Store distribution.
-- A macOS update could change or remove these private interfaces.
-- The standalone host is isolated in `GlobalTouchBarController.swift` and `TouchBarPrivateApi.h` so the rest of the project remains ordinary AppKit code.
+- the Mac App Store is not an appropriate distribution target
+- direct standalone distribution is the intended path
+- a future macOS update could change or remove the private interfaces
+- the private host code is isolated primarily in `GlobalTouchBarController.swift` and `TouchBarPrivateApi.h`
 
-## BetterTouchTool proof-of-concept
+For local builds, Xcode Archive, signing, notarization, and future public distribution notes, see [`DISTRIBUTION.md`](DISTRIBUTION.md).
 
-`BetterTouchTool/TouchBarpaloozaLemmings.swift` remains in the repository as the prototype that proved global hosting worked. It is no longer required by the standalone app.
+## BetterTouchTool prototype
 
-## Requirements
-
-- A Mac with a physical Touch Bar
-- macOS 10.15 or later
-- Xcode capable of building Swift 5
+`BetterTouchTool/TouchBarpaloozaLemmings.swift` remains in the repository as the early proof-of-concept that demonstrated persistent global Touch Bar hosting. It is no longer required by the standalone app.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [`LICENSE`](LICENSE).
