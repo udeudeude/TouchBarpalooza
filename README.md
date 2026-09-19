@@ -35,7 +35,7 @@ The main launcher currently includes:
 - **Toki Pona** study tools
 - **Pond**: interactive koi and water ripples
 
-Compact `esc`, Home, and Quit controls are used where appropriate to preserve Touch Bar space.
+Compact `esc`, Home, and Quit controls are used where appropriate to preserve Touch Bar space. Because the persistent system-modal bar cannot host macOS's native Escape key in place, tapping `esc` temporarily minimizes TouchBarpalooza and reveals the normal Touch Bar with the real system Escape key. No Accessibility permission is required; use the small Control Strip launcher to return.
 
 ## Games
 
