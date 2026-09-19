@@ -1,39 +1,12 @@
 import AppKit
 
-private extension NSTouchBar.CustomizationIdentifier {
-    static let touchBarpalooza = NSTouchBar.CustomizationIdentifier("com.udeudeude.TouchBarpalooza")
-}
-
-private extension NSTouchBarItem.Identifier {
-    static let home = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.home")
-    static let lemmings = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.lemmings")
-    static let meters = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.meters")
-    static let clipboard = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.clipboard")
-    static let notes = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.notes")
-    static let about = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.about")
-    static let canvas = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.canvas")
-    static let placeholder = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.placeholder")
-}
-
-private final class TouchBarHostView: NSView {
-    override var acceptsFirstResponder: Bool { true }
-}
-
-final class MainViewController: NSViewController, NSTouchBarDelegate {
-    private enum Mode {
-        case home
-        case lemmings
-        case placeholder(String)
-    }
-
-    private var mode: Mode = .home
-
+final class MainViewController: NSViewController {
     private var shortVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     override func loadView() {
-        let root = TouchBarHostView()
+        let root = NSView()
         root.wantsLayer = true
 
         let title = NSTextField(labelWithString: "TouchBarpalooza")
@@ -59,15 +32,13 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
             subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10)
         ])
 
-        self.view = root
+        view = root
     }
 
     override func makeTouchBar() -> NSTouchBar? {
-        // The persistent system-modal controller owns TouchBarpalooza's UI.
-        // Do not leave a second responder-chain Touch Bar underneath it, or
-        // dismissing the modal bar reveals the obsolete prototype launcher.
+        // The persistent system-modal controller is TouchBarpalooza's only
+        // Touch Bar host. Returning nil prevents the obsolete prototype bar
+        // from appearing after the system-modal bar is dismissed.
         nil
     }
-
-
 }
