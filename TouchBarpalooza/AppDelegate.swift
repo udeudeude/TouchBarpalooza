@@ -58,11 +58,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
         }
         window.contentViewController = controller
-        window.makeKeyAndOrderFront(nil)
         self.window = window
 
         globalTouchBarController.start()
-        NSApp.activate(ignoringOtherApps: true)
+
+        // TouchBarpalooza is primarily a persistent background Touch Bar utility.
+        // Returning focus to the user's current app also lets macOS display the
+        // native system-modal close box consistently during normal use.
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
+        }
     }
 
     private var shortVersion: String {
