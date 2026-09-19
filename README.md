@@ -35,7 +35,7 @@ The main launcher currently includes:
 - **Toki Pona** study tools
 - **Pond**: interactive koi and water ripples
 
-Home and Quit controls are kept compact to preserve Touch Bar space. TouchBarpalooza leaves the Escape replacement slot unset, so macOS supplies its real system Escape key directly in every mode. No Accessibility permission or synthetic keyboard event is required.
+Home controls are kept compact to preserve Touch Bar space. The persistent system-modal bar uses macOS's native close box as a one-tap exit to the foreground application's normal Touch Bar, where the real system Escape key is available. The small Control Strip launcher remains available to reopen TouchBarpalooza. No Accessibility permission or synthetic keyboard event is required.
 
 ## Games
 
