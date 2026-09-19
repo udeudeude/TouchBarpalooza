@@ -1,9 +1,8 @@
 import AppKit
-import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
-    static let pokiSitelenEscape = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.escape")
+    static let pokiSitelenQuit = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.quit")
     static let pokiSitelenClipboard = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.clipboard")
     static let pokiSitelenToki = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.toki")
     static let pokiSitelenContent = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.content")
@@ -57,13 +56,14 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private func rebuildAndPresent() {
         let bar = NSTouchBar()
         bar.delegate = self
-        bar.escapeKeyReplacementItemIdentifier = .pokiSitelenEscape
+        // Leave this nil so macOS supplies the real system Escape key.
+        bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .toki:
-            bar.defaultItemIdentifiers = [.pokiSitelenClipboard, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenClipboard, .pokiSitelenContent]
         case .clipboard:
-            bar.defaultItemIdentifiers = [.pokiSitelenToki, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenToki, .pokiSitelenContent]
         }
 
         touchBar = bar
@@ -85,13 +85,15 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .pokiSitelenEscape:
-            return compactButtonItem(
+        case .pokiSitelenQuit:
+            let item = compactButtonItem(
                 identifier: identifier,
-                title: "esc",
-                width: 34,
-                action: #selector(sendEscape)
+                title: "ⓧ",
+                width: 28,
+                action: #selector(quitPokiSitelen)
             )
+            item.view.toolTip = "Quit poki sitelen"
+            return item
 
         case .pokiSitelenClipboard:
             let item = compactButtonItem(
@@ -146,11 +148,11 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         action: Selector
     ) -> NSCustomTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let host = NSView(frame: NSRect(x: 0, y: 0, width: width, height: 30))
+        let host = FixedPokiSitelenButtonHost(width: width)
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
-        button.font = .systemFont(ofSize: identifier == .pokiSitelenEscape ? 10 : 11)
+        button.font = .systemFont(ofSize: identifier == .pokiSitelenQuit ? 13 : 11)
 
         host.addSubview(button)
         item.view = host
@@ -168,14 +170,26 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         rebuildAndPresent()
     }
 
-    @objc private func sendEscape() {
-        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: true),
-              let up = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: false) else {
-            return
-        }
+    @objc private func quitPokiSitelen() {
+        stop()
+        NSApp.terminate(nil)
+    }
+}
 
-        down.post(tap: .cgAnnotatedSessionEventTap)
-        up.post(tap: .cgAnnotatedSessionEventTap)
+private final class FixedPokiSitelenButtonHost: NSView {
+    private let fixedSize: NSSize
+
+    init(width: CGFloat) {
+        fixedSize = NSSize(width: width, height: 30)
+        super.init(frame: NSRect(origin: .zero, size: fixedSize))
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: NSSize {
+        fixedSize
     }
 }
 
@@ -193,7 +207,4 @@ private final class FixedPokiSitelenView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override var intrinsicContentSize: NSSize {
-        frame.size
-    }
 }

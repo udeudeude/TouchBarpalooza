@@ -1,10 +1,7 @@
 import AppKit
-import ApplicationServices
-import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
-    static let touchBarpaloozaEscape = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.escape")
     static let touchBarpaloozaQuit = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.quit")
     static let touchBarpaloozaHome = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.home")
 
@@ -94,7 +91,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let bar = NSTouchBar()
         bar.delegate = self
-        bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaEscape
+        // Leave this nil so macOS supplies the real system Escape key.
+        bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .home:
@@ -143,10 +141,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .touchBarpaloozaEscape:
-            let item = buttonItem(identifier: identifier, title: "esc", action: #selector(sendEscape))
-            item.visibilityPriority = .high
-            return item
         case .touchBarpaloozaQuit:
             let item = buttonItem(identifier: identifier, title: "ⓧ", action: #selector(quitTouchBarpalooza))
             item.visibilityPriority = .high
@@ -427,8 +421,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let compactWidth: CGFloat?
         switch identifier {
-        case .touchBarpaloozaEscape:
-            compactWidth = 34
         case .touchBarpaloozaQuit, .touchBarpaloozaHome:
             compactWidth = 28
         default:
@@ -438,7 +430,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         if let compactWidth {
             let host = FixedTouchBarView(size: NSSize(width: compactWidth, height: 30))
             button.frame = NSRect(x: 0, y: 1, width: compactWidth, height: 28)
-            button.font = .systemFont(ofSize: identifier == .touchBarpaloozaEscape ? 10 : 13)
+            button.font = .systemFont(ofSize: 13)
             host.addSubview(button)
             item.view = host
         } else {
@@ -457,15 +449,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     @objc private func nukeLemmings() {
         currentLemmingsView?.nuke()
-    }
-
-    @objc private func sendEscape() {
-        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: true),
-              let up = CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: false) else {
-            return
-        }
-        down.post(tap: .cgAnnotatedSessionEventTap)
-        up.post(tap: .cgAnnotatedSessionEventTap)
     }
 
     @objc private func quitTouchBarpalooza() {
