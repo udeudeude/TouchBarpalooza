@@ -62,123 +62,12 @@ final class MainViewController: NSViewController, NSTouchBarDelegate {
         self.view = root
     }
 
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        installTouchBar()
-    }
-
     override func makeTouchBar() -> NSTouchBar? {
-        buildTouchBar()
+        // The persistent system-modal controller owns TouchBarpalooza's UI.
+        // Do not leave a second responder-chain Touch Bar underneath it, or
+        // dismissing the modal bar reveals the obsolete prototype launcher.
+        nil
     }
 
-    private func installTouchBar() {
-        let bar = buildTouchBar()
 
-        // Put the same bar on every responder that can plausibly win the
-        // Touch Bar lookup. Most importantly, the root view explicitly
-        // accepts first-responder status and owns this bar directly.
-        touchBar = bar
-        view.touchBar = bar
-        view.window?.touchBar = bar
-        view.window?.makeFirstResponder(view)
-
-        print("TouchBarpalooza: first responder is host view = \(view.window?.firstResponder === view)")
-    }
-
-    private func buildTouchBar() -> NSTouchBar {
-        let bar = NSTouchBar()
-        bar.delegate = self
-        bar.customizationIdentifier = .touchBarpalooza
-
-        switch mode {
-        case .home:
-            bar.defaultItemIdentifiers = [.lemmings, .meters, .clipboard, .notes, .about]
-        case .lemmings:
-            bar.escapeKeyReplacementItemIdentifier = .home
-            bar.defaultItemIdentifiers = [.canvas]
-            bar.principalItemIdentifier = .canvas
-        case .placeholder:
-            bar.escapeKeyReplacementItemIdentifier = .home
-            bar.defaultItemIdentifiers = [.placeholder]
-            bar.principalItemIdentifier = .placeholder
-        }
-        return bar
-    }
-
-    func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
-        switch identifier {
-        case .home:
-            return buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
-        case .lemmings:
-            return buttonItem(identifier: identifier, title: "Lemmings", action: #selector(showLemmings))
-        case .meters:
-            return buttonItem(identifier: identifier, title: "Meters", action: #selector(showMeters))
-        case .clipboard:
-            return buttonItem(identifier: identifier, title: "Clipboard", action: #selector(showClipboard))
-        case .notes:
-            return buttonItem(identifier: identifier, title: "Notes", action: #selector(showNotes))
-        case .about:
-            return buttonItem(identifier: identifier, title: "About", action: #selector(showAbout))
-        case .canvas:
-            let item = NSCustomTouchBarItem(identifier: identifier)
-            let lemmings = LemmingsView(frame: NSRect(x: 0, y: 0, width: 700, height: 30))
-            lemmings.translatesAutoresizingMaskIntoConstraints = false
-            lemmings.widthAnchor.constraint(greaterThanOrEqualToConstant: 650).isActive = true
-            lemmings.heightAnchor.constraint(equalToConstant: 30).isActive = true
-            item.view = lemmings
-            return item
-        case .placeholder:
-            let item = NSCustomTouchBarItem(identifier: identifier)
-            let label = NSTextField(labelWithString: placeholderText)
-            label.alignment = .center
-            label.font = .systemFont(ofSize: 14, weight: .medium)
-            item.view = label
-            return item
-        default:
-            return nil
-        }
-    }
-
-    private var placeholderText: String {
-        if case let .placeholder(name) = mode {
-            return "\(name) is reserved for the next TouchBarpalooza experiment."
-        }
-        return ""
-    }
-
-    private func buttonItem(identifier: NSTouchBarItem.Identifier, title: String, action: Selector) -> NSTouchBarItem {
-        let item = NSCustomTouchBarItem(identifier: identifier)
-        item.view = NSButton(title: title, target: self, action: action)
-        return item
-    }
-
-    @objc private func showHome() {
-        mode = .home
-        installTouchBar()
-    }
-
-    @objc private func showLemmings() {
-        mode = .lemmings
-        installTouchBar()
-    }
-
-    @objc private func showMeters() {
-        mode = .placeholder("Meters")
-        installTouchBar()
-    }
-
-    @objc private func showClipboard() {
-        mode = .placeholder("Clipboard")
-        installTouchBar()
-    }
-
-    @objc private func showNotes() {
-        mode = .placeholder("Notes")
-        installTouchBar()
-    }
-
-    @objc private func showAbout() {
-        mode = .placeholder("TouchBarpalooza v\(shortVersion)")
-        installTouchBar()
-    }
 }
