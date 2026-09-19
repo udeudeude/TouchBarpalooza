@@ -2,7 +2,6 @@ import AppKit
 
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
-    static let pokiSitelenQuit = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.quit")
     static let pokiSitelenClipboard = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.clipboard")
     static let pokiSitelenToki = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.toki")
     static let pokiSitelenContent = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.content")
@@ -25,7 +24,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         guard !isStarted else { return }
         isStarted = true
 
-        DFRSystemModalShowsCloseBoxWhenFrontMost(false)
+        DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .pokiSitelenTray)
         let trayButton = NSButton(title: "poki", target: self, action: #selector(presentCurrentBar))
@@ -61,9 +60,9 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
 
         switch mode {
         case .toki:
-            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenClipboard, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenClipboard, .pokiSitelenContent]
         case .clipboard:
-            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenToki, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenToki, .pokiSitelenContent]
         }
 
         touchBar = bar
@@ -85,16 +84,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .pokiSitelenQuit:
-            let item = compactButtonItem(
-                identifier: identifier,
-                title: "ⓧ",
-                width: 28,
-                action: #selector(quitPokiSitelen)
-            )
-            item.view.toolTip = "Quit poki sitelen"
-            return item
-
         case .pokiSitelenClipboard:
             let item = compactButtonItem(
                 identifier: identifier,
@@ -152,11 +141,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
-        if identifier == .pokiSitelenQuit {
-            button.font = .systemFont(ofSize: 13)
-        } else {
-            button.font = .systemFont(ofSize: 11)
-        }
+        button.font = .systemFont(ofSize: 11)
 
         host.addSubview(button)
         item.view = host
@@ -174,10 +159,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         rebuildAndPresent()
     }
 
-    @objc private func quitPokiSitelen() {
-        stop()
-        NSApp.terminate(nil)
-    }
 }
 
 private final class FixedPokiSitelenButtonHost: NSView {
