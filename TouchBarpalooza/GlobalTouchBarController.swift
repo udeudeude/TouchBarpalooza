@@ -2,7 +2,6 @@ import AppKit
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
-    static let touchBarpaloozaQuit = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.quit")
     static let touchBarpaloozaHome = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.home")
 
     static let touchBarpaloozaLemmings = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.lemmings")
@@ -61,7 +60,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     func start() {
         guard !isStarted else { return }
         isStarted = true
-        DFRSystemModalShowsCloseBoxWhenFrontMost(false)
+        DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .touchBarpaloozaTray)
         let trayButton = NSButton(title: "TP", target: self, action: #selector(presentCurrentBar))
@@ -91,14 +90,14 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let bar = NSTouchBar()
         bar.delegate = self
-        // Leave this nil so macOS keeps its real system Escape key visible.
-        // This is the original, permission-free behavior used by TouchBarpalooza.
+        // System-modal bars occupy macOS's native Escape slot. Keep the
+        // replacement unset and let the DFR system-modal close box provide
+        // the native one-tap route back to the normal Touch Bar.
         bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .home:
             bar.defaultItemIdentifiers = [
-                .touchBarpaloozaQuit,
                 .touchBarpaloozaClipboard,
                 .touchBarpaloozaAudio,
                 .touchBarpaloozaMIDI,
@@ -142,11 +141,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .touchBarpaloozaQuit:
-            let item = buttonItem(identifier: identifier, title: "ⓧ", action: #selector(quitTouchBarpalooza))
-            item.visibilityPriority = .high
-            item.view.toolTip = "Quit TouchBarpalooza"
-            return item
         case .touchBarpaloozaHome:
             let item = buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
             item.visibilityPriority = .high
@@ -422,7 +416,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let compactWidth: CGFloat?
         switch identifier {
-        case .touchBarpaloozaQuit, .touchBarpaloozaHome:
+        case .touchBarpaloozaHome:
             compactWidth = 28
         default:
             compactWidth = nil
@@ -450,11 +444,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     @objc private func nukeLemmings() {
         currentLemmingsView?.nuke()
-    }
-
-    @objc private func quitTouchBarpalooza() {
-        stop()
-        NSApp.terminate(nil)
     }
 
     @objc private func showHome() { mode = .home; rebuildAndPresent() }
