@@ -8,6 +8,20 @@ It includes its own **system-modal Touch Bar host**, so the TouchBarpalooza inte
 
 The current standalone build is **TouchBarpalooza 0.3**. It has been built as a universal Mac application for both Intel and Apple silicon and tested running directly from `/Applications` on a physical Touch Bar Mac.
 
+## Companion app: poki sitelen
+
+The repository also includes **poki sitelen**, a smaller standalone Touch Bar app built from the Toki Pona and clipboard parts of TouchBarpalooza. The name combines *poki* (container) with *sitelen* (writing/image), a natural Toki Pona description of a clipboard.
+
+Its normal view is the Toki Pona word study display. Meanwhile, a six-slot clipboard history keeps watching copied text in the background. Tap **poki** to open those six clipboard slots, then tap **toki** to return to the study display.
+
+Build and install it with:
+
+```bash
+bash scripts/build-poki-sitelen.sh --install
+```
+
+This creates and installs `/Applications/poki sitelen.app` independently of the full TouchBarpalooza app.
+
 ## What is on the Touch Bar
 
 The main launcher currently includes:

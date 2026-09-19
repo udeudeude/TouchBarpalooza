@@ -1,4 +1,4 @@
-name: Build TouchBarpalooza
+name: Build Mac apps
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  touchbarpalooza:
     runs-on: macos-latest
     strategy:
       matrix:
@@ -16,11 +16,30 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build app
+      - name: Build TouchBarpalooza
         run: |
           xcodebuild \
             -project TouchBarpalooza.xcodeproj \
             -target TouchBarpalooza \
+            -configuration "${{ matrix.configuration }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  poki-sitelen:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+    name: poki sitelen ${{ matrix.configuration }} build
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build poki sitelen
+        run: |
+          xcodebuild \
+            -project PokiSitelen.xcodeproj \
+            -target PokiSitelen \
             -configuration "${{ matrix.configuration }}" \
             CODE_SIGNING_ALLOWED=NO \
             build
