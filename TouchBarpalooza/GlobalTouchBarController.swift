@@ -66,7 +66,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .touchBarpaloozaTray)
-        let trayButton = NSButton(title: "TP", target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(title: "⌂", target: self, action: #selector(presentCurrentBar))
         trayButton.toolTip = "Show TouchBarpalooza"
         trayItem.view = trayButton
         self.trayItem = trayItem
