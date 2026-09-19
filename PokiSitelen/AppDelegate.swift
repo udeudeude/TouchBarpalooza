@@ -1,10 +1,12 @@
 import AppKit
+import CoreGraphics
 
 final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate {
     private let touchBarController = PokiSitelenTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureApplicationMenu()
+        requestEscapePostingAccessIfNeeded()
         touchBarController.start()
     }
 
@@ -20,6 +22,14 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate {
         )
         aboutItem.target = self
         applicationMenu.addItem(aboutItem)
+
+        let escapePermissionItem = NSMenuItem(
+            title: "Enable Touch Bar Escape…",
+            action: #selector(enableEscapePermission(_:)),
+            keyEquivalent: ""
+        )
+        escapePermissionItem.target = self
+        applicationMenu.addItem(escapePermissionItem)
         applicationMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(
@@ -57,6 +67,25 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate {
             ]
         )
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func requestEscapePostingAccessIfNeeded() {
+        if !CGPreflightPostEventAccess() {
+            _ = CGRequestPostEventAccess()
+        }
+    }
+
+    @objc private func enableEscapePermission(_ sender: Any?) {
+        guard !CGPreflightPostEventAccess() else { return }
+
+        _ = CGRequestPostEventAccess()
+
+        if !CGPreflightPostEventAccess(),
+           let url = URL(
+               string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+           ) {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

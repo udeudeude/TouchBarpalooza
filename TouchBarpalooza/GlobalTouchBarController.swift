@@ -467,6 +467,16 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             if !didRequestPostEventAccess {
                 didRequestPostEventAccess = true
                 _ = CGRequestPostEventAccess()
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    guard !CGPreflightPostEventAccess(),
+                          let url = URL(
+                              string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                          ) else {
+                        return
+                    }
+                    NSWorkspace.shared.open(url)
+                }
             }
             return
         }
