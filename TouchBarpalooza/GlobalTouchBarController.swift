@@ -2,6 +2,7 @@ import AppKit
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
+    static let touchBarpaloozaForegroundClose = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.foregroundClose")
     static let touchBarpaloozaHome = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.home")
 
     static let touchBarpaloozaLemmings = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.lemmings")
@@ -55,6 +56,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
+    private var activationObservers: [NSObjectProtocol] = []
     private weak var currentLemmingsView: LemmingsView?
     private var lemmingsSkillButtons: [NSButton] = []
 
@@ -71,6 +73,25 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         NSTouchBarItem.addSystemTrayItem(trayItem)
         DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+
+        let center = NotificationCenter.default
+        activationObservers = [
+            center.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            },
+            center.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            }
+        ]
+
         rebuildAndPresent()
     }
 
@@ -82,6 +103,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             NSTouchBarItem.removeSystemTrayItem(trayItem)
         }
         trayItem = nil
+
+        for observer in activationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        activationObservers.removeAll()
+
         isStarted = false
     }
 
@@ -91,10 +118,13 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let bar = NSTouchBar()
         bar.delegate = self
-        // System-modal bars occupy macOS's native Escape slot. Keep the
-        // replacement unset and let the DFR system-modal close box provide
-        // the native one-tap route back to the normal Touch Bar.
-        bar.escapeKeyReplacementItemIdentifier = nil
+        // When another app is frontmost, macOS supplies the native system-
+        // modal X. When TouchBarpalooza itself is frontmost that native X
+        // disappears, so occupy the special left slot with our own dismiss
+        // button only for that state.
+        bar.escapeKeyReplacementItemIdentifier = NSApp.isActive
+            ? .touchBarpaloozaForegroundClose
+            : nil
 
         switch mode {
         case .home:
@@ -147,6 +177,15 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
+        case .touchBarpaloozaForegroundClose:
+            let item = buttonItem(
+                identifier: identifier,
+                title: "×",
+                action: #selector(dismissForRealEscape)
+            )
+            item.visibilityPriority = .high
+            item.view.toolTip = "Close TouchBarpalooza and reveal the normal Touch Bar"
+            return item
         case .touchBarpaloozaHome:
             let item = buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
             item.visibilityPriority = .high
@@ -475,6 +514,8 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let compactWidth: CGFloat?
         switch identifier {
+        case .touchBarpaloozaForegroundClose:
+            compactWidth = 34
         case .touchBarpaloozaHome:
             compactWidth = 28
         default:
@@ -491,6 +532,18 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             item.view = button
         }
         return item
+    }
+
+    @objc private func dismissForRealEscape() {
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
+
+        // Keep the Control Strip launcher available so the persistent bar can
+        // be restored with one tap after using the real system Escape key.
+        DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard self?.isStarted == true else { return }
+            DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+        }
     }
 
     @objc private func skillButtonPressed(_ sender: NSButton) {
