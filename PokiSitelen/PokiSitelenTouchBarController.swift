@@ -148,7 +148,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         action: Selector
     ) -> NSCustomTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let host = NSView(frame: NSRect(x: 0, y: 0, width: width, height: 30))
+        let host = FixedPokiSitelenButtonHost(width: width)
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
@@ -173,6 +173,23 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func quitPokiSitelen() {
         stop()
         NSApp.terminate(nil)
+    }
+}
+
+private final class FixedPokiSitelenButtonHost: NSView {
+    private let fixedSize: NSSize
+
+    init(width: CGFloat) {
+        fixedSize = NSSize(width: width, height: 30)
+        super.init(frame: NSRect(origin: .zero, size: fixedSize))
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var intrinsicContentSize: NSSize {
+        fixedSize
     }
 }
 
