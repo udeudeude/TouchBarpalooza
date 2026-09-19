@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
@@ -22,7 +21,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
-    private var didRequestPostEventAccess = false
 
     func start() {
         guard !isStarted else { return }
@@ -96,7 +94,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
                 width: 34,
                 action: #selector(sendEscape)
             )
-            item.view.toolTip = "Escape"
+            item.view.toolTip = "Reveal the normal Touch Bar and real Escape key"
             return item
 
         case .pokiSitelenQuit:
@@ -191,32 +189,10 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     @objc private func sendEscape() {
-        guard CGPreflightPostEventAccess() else {
-            if !didRequestPostEventAccess {
-                didRequestPostEventAccess = true
-                _ = CGRequestPostEventAccess()
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    guard !CGPreflightPostEventAccess(),
-                          let url = URL(
-                              string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-                          ) else {
-                        return
-                    }
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            return
-        }
-
-        let source = CGEventSource(stateID: .hidSystemState)
-        guard let down = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) else {
-            return
-        }
-
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+        // The persistent system-modal bar owns the Escape slot. Minimize it
+        // instead of synthesizing a key event, revealing macOS's real Touch Bar
+        // and native Escape key with no Accessibility permission required.
+        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
     }
 
     @objc private func quitPokiSitelen() {
