@@ -424,6 +424,22 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         switch identifier {
         case .touchBarpaloozaQuit, .touchBarpaloozaHome:
             compactWidth = 28
+        case .touchBarpaloozaClipboard:
+            compactWidth = 82
+        case .touchBarpaloozaAudio:
+            compactWidth = 76
+        case .touchBarpaloozaMIDI:
+            compactWidth = 52
+        case .touchBarpaloozaGames:
+            compactWidth = 62
+        case .touchBarpaloozaSavers:
+            compactWidth = 64
+        case .touchBarpaloozaKITT:
+            compactWidth = 50
+        case .touchBarpaloozaTokiPona:
+            compactWidth = 82
+        case .touchBarpaloozaPond:
+            compactWidth = 52
         default:
             compactWidth = nil
         }
@@ -431,7 +447,11 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         if let compactWidth {
             let host = FixedTouchBarView(size: NSSize(width: compactWidth, height: 30))
             button.frame = NSRect(x: 0, y: 1, width: compactWidth, height: 28)
-            button.font = .systemFont(ofSize: 13)
+            if identifier == .touchBarpaloozaQuit || identifier == .touchBarpaloozaHome {
+                button.font = .systemFont(ofSize: 13)
+            } else {
+                button.font = .systemFont(ofSize: 11)
+            }
             host.addSubview(button)
             item.view = host
         } else {
