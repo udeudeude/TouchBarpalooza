@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
@@ -57,7 +56,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
-    private var didRequestPostEventAccess = false
     private weak var currentLemmingsView: LemmingsView?
     private var lemmingsSkillButtons: [NSButton] = []
 
@@ -148,7 +146,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .touchBarpaloozaEscape:
             let item = buttonItem(identifier: identifier, title: "esc", action: #selector(sendEscape))
             item.visibilityPriority = .high
-            item.view.toolTip = "Escape"
+            item.view.toolTip = "Reveal the normal Touch Bar and real Escape key"
             return item
         case .touchBarpaloozaQuit:
             let item = buttonItem(identifier: identifier, title: "ⓧ", action: #selector(quitTouchBarpalooza))
@@ -463,32 +461,11 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     @objc private func sendEscape() {
-        guard CGPreflightPostEventAccess() else {
-            if !didRequestPostEventAccess {
-                didRequestPostEventAccess = true
-                _ = CGRequestPostEventAccess()
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    guard !CGPreflightPostEventAccess(),
-                          let url = URL(
-                              string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-                          ) else {
-                        return
-                    }
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            return
-        }
-
-        let source = CGEventSource(stateID: .hidSystemState)
-        guard let down = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true),
-              let up = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) else {
-            return
-        }
-
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+        // A system-modal Touch Bar cannot expose macOS's native Escape button
+        // in-place. Minimize our bar instead, immediately revealing the normal
+        // Touch Bar and its real system Escape key. The Control Strip tray item
+        // remains available to restore TouchBarpalooza.
+        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
     }
 
     @objc private func quitTouchBarpalooza() {
