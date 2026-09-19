@@ -39,6 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // This app is primarily a persistent Touch Bar utility. Run as an
+        // accessory application so normal use does not take foreground focus
+        // away from Safari, Finder, etc.; the native system-modal close box is
+        // only supplied reliably while another application is frontmost.
+        NSApp.setActivationPolicy(.accessory)
+
         configureApplicationMenu()
         requestInputMonitoringIfNeeded()
 
@@ -58,13 +64,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
         }
         window.contentViewController = controller
+        window.orderOut(nil)
         self.window = window
 
         globalTouchBarController.start()
 
-        // TouchBarpalooza is primarily a persistent background Touch Bar utility.
-        // Returning focus to the user's current app also lets macOS display the
-        // native system-modal close box consistently during normal use.
+        // Do not activate the application at launch. The foreground application
+        // should remain foreground so the persistent bar gets macOS's native X.
         DispatchQueue.main.async {
             NSApp.hide(nil)
         }
