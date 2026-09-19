@@ -6,37 +6,40 @@ on:
   pull_request:
 
 jobs:
-  build:
+  touchbarpalooza:
     runs-on: macos-latest
     strategy:
       matrix:
-        include:
-          - app: TouchBarpalooza
-            project: TouchBarpalooza.xcodeproj
-            target: TouchBarpalooza
-            configuration: Debug
-          - app: TouchBarpalooza
-            project: TouchBarpalooza.xcodeproj
-            target: TouchBarpalooza
-            configuration: Release
-          - app: poki sitelen
-            project: PokiSitelen.xcodeproj
-            target: PokiSitelen
-            configuration: Debug
-          - app: poki sitelen
-            project: PokiSitelen.xcodeproj
-            target: PokiSitelen
-            configuration: Release
-    name: ${{ matrix.app }} ${{ matrix.configuration }}
+        configuration: [Debug, Release]
+    name: ${{ matrix.configuration }} build
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build app
+      - name: Build TouchBarpalooza
         run: |
           xcodebuild \
-            -project "${{ matrix.project }}" \
-            -target "${{ matrix.target }}" \
+            -project TouchBarpalooza.xcodeproj \
+            -target TouchBarpalooza \
+            -configuration "${{ matrix.configuration }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  poki-sitelen:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+    name: poki sitelen ${{ matrix.configuration }} build
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build poki sitelen
+        run: |
+          xcodebuild \
+            -project PokiSitelen.xcodeproj \
+            -target PokiSitelen \
             -configuration "${{ matrix.configuration }}" \
             CODE_SIGNING_ALLOWED=NO \
             build
