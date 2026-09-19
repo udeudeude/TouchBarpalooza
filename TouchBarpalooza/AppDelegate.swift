@@ -39,6 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // This app is primarily a persistent Touch Bar utility. Run as an
+        // accessory application so normal use does not take foreground focus
+        // away from Safari, Finder, etc.; the native system-modal close box is
+        // only supplied reliably while another application is frontmost.
+        NSApp.setActivationPolicy(.accessory)
+
         configureApplicationMenu()
         requestInputMonitoringIfNeeded()
 
@@ -58,11 +64,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.center()
         }
         window.contentViewController = controller
-        window.makeKeyAndOrderFront(nil)
+        window.orderOut(nil)
         self.window = window
 
         globalTouchBarController.start()
-        NSApp.activate(ignoringOtherApps: true)
+
+        // Do not activate the application at launch. The foreground application
+        // should remain foreground so the persistent bar gets macOS's native X.
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
+        }
     }
 
     private var shortVersion: String {
