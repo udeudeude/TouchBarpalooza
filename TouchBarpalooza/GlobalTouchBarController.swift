@@ -396,33 +396,42 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let host = FixedTouchBarView(size: NSSize(width: 650, height: 30))
-        let stack = NSStackView(frame: host.bounds)
-        stack.orientation = .horizontal
-        stack.spacing = 2
-        stack.distribution = .fillEqually
-        stack.autoresizingMask = [.width, .height]
 
-        let specs: [(String, Selector)] = [
-            ("⌂", #selector(showHome)),
-            ("Life", #selector(showLife)),
-            ("Pong", #selector(showPong)),
-            ("Cave", #selector(showAdventure)),
-            ("Break", #selector(showBreakout)),
-            ("Snake", #selector(showSnake)),
-            ("Pit", #selector(showPitfall)),
-            ("E.T.", #selector(showET)),
-            ("Mario", #selector(showMario)),
-            ("Lemmings", #selector(showLemmingsMenu))
+        // Use explicit compact widths instead of equal-width stack cells. The
+        // standard Touch Bar button chrome has generous horizontal insets, so
+        // equal distribution wastes enough room to clip the final game.
+        let specs: [(String, CGFloat, Selector)] = [
+            ("⌂", 32, #selector(showHome)),
+            ("Life", 44, #selector(showLife)),
+            ("Pong", 48, #selector(showPong)),
+            ("Cave", 48, #selector(showAdventure)),
+            ("Break", 50, #selector(showBreakout)),
+            ("Snake", 52, #selector(showSnake)),
+            ("Pit", 38, #selector(showPitfall)),
+            ("E.T.", 40, #selector(showET)),
+            ("Mario", 50, #selector(showMario)),
+            ("Lemmings", 66, #selector(showLemmingsMenu))
         ]
 
-        for (title, action) in specs {
-            let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: title == "⌂" ? 12 : 8)
-            stack.addArrangedSubview(button)
+        let spacing: CGFloat = 2
+        let totalWidth = specs.reduce(CGFloat.zero) { $0 + $1.1 }
+            + spacing * CGFloat(specs.count - 1)
+        let host = FixedTouchBarView(size: NSSize(width: totalWidth, height: 30))
+
+        var x: CGFloat = 0
+        for (title, width, action) in specs {
+            let button = NSButton(
+                frame: NSRect(x: x, y: 1, width: width, height: 28)
+            )
+            button.title = title
+            button.target = self
+            button.action = action
+            button.controlSize = .mini
+            button.font = .systemFont(ofSize: title == "⌂" ? 11 : 8)
+            host.addSubview(button)
+            x += width + spacing
         }
 
-        host.addSubview(stack)
         item.view = host
         item.visibilityPriority = .high
         return item
