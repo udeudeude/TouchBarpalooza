@@ -41,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureApplicationMenu()
         requestInputMonitoringIfNeeded()
-        requestEscapePostingAccessIfNeeded()
 
         let controller = MainViewController()
         self.controller = controller
@@ -91,13 +90,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showWindowItem.target = self
         applicationMenu.addItem(showWindowItem)
 
-        let escapePermissionItem = NSMenuItem(
-            title: "Enable Touch Bar Escape…",
-            action: #selector(enableEscapePermission(_:)),
-            keyEquivalent: ""
-        )
-        escapePermissionItem.target = self
-        applicationMenu.addItem(escapePermissionItem)
         applicationMenu.addItem(.separator())
 
         let hideItem = NSMenuItem(
@@ -135,27 +127,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func requestInputMonitoringIfNeeded() {
         if !CGPreflightListenEventAccess() {
             _ = CGRequestListenEventAccess()
-        }
-    }
-
-    private func requestEscapePostingAccessIfNeeded() {
-        if !CGPreflightPostEventAccess() {
-            _ = CGRequestPostEventAccess()
-        }
-    }
-
-    @objc private func enableEscapePermission(_ sender: Any?) {
-        guard !CGPreflightPostEventAccess() else { return }
-
-        _ = CGRequestPostEventAccess()
-
-        // If the one-shot privacy prompt has already been dismissed or denied,
-        // take the user directly to the pane where PostEvent access is managed.
-        if !CGPreflightPostEventAccess(),
-           let url = URL(
-               string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-           ) {
-            NSWorkspace.shared.open(url)
         }
     }
 
