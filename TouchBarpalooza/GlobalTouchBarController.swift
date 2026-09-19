@@ -117,12 +117,21 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         }
 
+        // The private presenter stacks system-modal bars. Dismiss the current
+        // layer before replacing it, otherwise every navigation tap adds another
+        // layer and the native close box has to be tapped once per layer.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         touchBar = bar
         presentCurrentBar()
     }
 
     @objc private func presentCurrentBar() {
         guard isStarted else { return }
+
+        // Re-presenting an already visible bar stacks another modal layer too.
+        // Normalize to exactly one layer whether this came from navigation or
+        // the Control Strip launcher.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         NSTouchBar.presentSystemModalTouchBar(
             touchBar,
             systemTrayItemIdentifier: .touchBarpaloozaTray
@@ -178,10 +187,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func homeMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 650, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 650, height: 30))
+        let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
         stack.distribution = .fillEqually
+        stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
             ("Clipboard", #selector(showClipboard)),
@@ -196,11 +207,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: 11)
+            button.font = .systemFont(ofSize: 10)
             stack.addArrangedSubview(button)
         }
 
-        item.view = stack
+        host.addSubview(stack)
+        item.view = host
         item.visibilityPriority = .high
         return item
     }
@@ -381,10 +393,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 545, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 610, height: 30))
+        let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
         stack.distribution = .fillEqually
+        stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
             ("Life", #selector(showLife)),
@@ -404,16 +418,20 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(button)
         }
 
-        item.view = stack
+        host.addSubview(stack)
+        item.view = host
+        item.visibilityPriority = .high
         return item
     }
 
     private func saversMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 270, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 270, height: 30))
+        let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
         stack.distribution = .fillEqually
+        stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
             ("DVD", #selector(showDVD)),
@@ -427,7 +445,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             stack.addArrangedSubview(button)
         }
 
-        item.view = stack
+        host.addSubview(stack)
+        item.view = host
+        item.visibilityPriority = .high
         return item
     }
 
