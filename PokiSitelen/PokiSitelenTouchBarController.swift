@@ -2,7 +2,6 @@ import AppKit
 
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
-    static let pokiSitelenEscape = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.escape")
     static let pokiSitelenQuit = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.quit")
     static let pokiSitelenClipboard = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.clipboard")
     static let pokiSitelenToki = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.toki")
@@ -57,9 +56,8 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private func rebuildAndPresent() {
         let bar = NSTouchBar()
         bar.delegate = self
-        // A persistent system-modal Touch Bar occupies the system Escape slot,
-        // so provide a replacement that posts a real HID Escape key event.
-        bar.escapeKeyReplacementItemIdentifier = .pokiSitelenEscape
+        // Leave this nil so macOS keeps its real system Escape key visible.
+        bar.escapeKeyReplacementItemIdentifier = nil
 
         switch mode {
         case .toki:
@@ -87,16 +85,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .pokiSitelenEscape:
-            let item = compactButtonItem(
-                identifier: identifier,
-                title: "esc",
-                width: 34,
-                action: #selector(sendEscape)
-            )
-            item.view.toolTip = "Reveal the normal Touch Bar and real Escape key"
-            return item
-
         case .pokiSitelenQuit:
             let item = compactButtonItem(
                 identifier: identifier,
@@ -164,9 +152,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
-        if identifier == .pokiSitelenEscape {
-            button.font = .systemFont(ofSize: 10)
-        } else if identifier == .pokiSitelenQuit {
+        if identifier == .pokiSitelenQuit {
             button.font = .systemFont(ofSize: 13)
         } else {
             button.font = .systemFont(ofSize: 11)
@@ -186,18 +172,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showToki() {
         mode = .toki
         rebuildAndPresent()
-    }
-
-    @objc private func sendEscape() {
-        // Dismiss the system-modal bar entirely so macOS can restore the normal
-        // Touch Bar and its real Escape key while leaving the launcher available.
-        NSTouchBar.dismissSystemModalTouchBar(touchBar)
-        DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard self?.isStarted == true else { return }
-            DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
-        }
     }
 
     @objc private func quitPokiSitelen() {
