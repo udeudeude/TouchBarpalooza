@@ -108,9 +108,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .lemmingsDemo:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         case .gamesMenu:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .gamesCompact]
+            // Keep navigation and all game buttons inside one host item. If Home
+            // is a separate item, macOS may evict the entire games item once the
+            // native modal close box and Control Strip are accounted for.
+            bar.defaultItemIdentifiers = [.gamesCompact]
         case .saversMenu:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .saversCompact]
+            bar.defaultItemIdentifiers = [.saversCompact]
         case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life,
              .pitfall, .et, .mario, .adventure, .dvdSaver, .pipesSaver,
              .toastersSaver, .kitt, .tokiPona, .pond:
@@ -393,7 +396,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let host = FixedTouchBarView(size: NSSize(width: 610, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 650, height: 30))
         let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
@@ -401,6 +404,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
+            ("⌂", #selector(showHome)),
             ("Life", #selector(showLife)),
             ("Pong", #selector(showPong)),
             ("Cave", #selector(showAdventure)),
@@ -414,7 +418,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: 8)
+            button.font = .systemFont(ofSize: title == "⌂" ? 12 : 8)
             stack.addArrangedSubview(button)
         }
 
@@ -426,7 +430,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func saversMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let host = FixedTouchBarView(size: NSSize(width: 270, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 320, height: 30))
         let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
@@ -434,6 +438,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
+            ("⌂", #selector(showHome)),
             ("DVD", #selector(showDVD)),
             ("Pipes", #selector(showPipes)),
             ("Toasters", #selector(showToasters))
@@ -441,7 +446,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: 8)
+            button.font = .systemFont(ofSize: title == "⌂" ? 12 : 8)
             stack.addArrangedSubview(button)
         }
 
