@@ -461,11 +461,18 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     @objc private func sendEscape() {
-        // A system-modal Touch Bar cannot expose macOS's native Escape button
-        // in-place. Minimize our bar instead, immediately revealing the normal
-        // Touch Bar and its real system Escape key. The Control Strip tray item
-        // remains available to restore TouchBarpalooza.
-        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
+        // Dismiss the system-modal bar entirely so macOS can restore the normal
+        // Touch Bar and its real Escape key. Keep our Control Strip tray item
+        // present so TouchBarpalooza can be reopened with one tap.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
+        DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+
+        // Some macOS versions reset Control Strip presence as dismissal settles.
+        // Reassert once on the next beat so the launcher remains available.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard self?.isStarted == true else { return }
+            DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+        }
     }
 
     @objc private func quitTouchBarpalooza() {
