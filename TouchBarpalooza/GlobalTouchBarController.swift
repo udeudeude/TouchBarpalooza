@@ -20,6 +20,7 @@ private extension NSTouchBarItem.Identifier {
 
     static let gamesCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.compact")
     static let saversCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.savers.compact")
+    static let homeCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.home.compact")
     static let content = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.content")
 }
 
@@ -97,16 +98,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         switch mode {
         case .home:
-            bar.defaultItemIdentifiers = [
-                .touchBarpaloozaClipboard,
-                .touchBarpaloozaAudio,
-                .touchBarpaloozaMIDI,
-                .touchBarpaloozaGames,
-                .touchBarpaloozaSavers,
-                .touchBarpaloozaKITT,
-                .touchBarpaloozaTokiPona,
-                .touchBarpaloozaPond
-            ]
+            // Treat the launcher as one compact item so macOS cannot evict the
+            // last button (Pond) when it inserts the native modal close box.
+            bar.defaultItemIdentifiers = [.homeCompact]
         case .lemmingsMenu:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .lemmingsPlay, .lemmingsDemo]
         case .lemmingsPlay:
@@ -173,11 +167,42 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             return gamesMenuItem(identifier: identifier)
         case .saversCompact:
             return saversMenuItem(identifier: identifier)
+        case .homeCompact:
+            return homeMenuItem(identifier: identifier)
         case .content:
             return contentItem(identifier: identifier)
         default:
             return nil
         }
+    }
+
+    private func homeMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
+        let item = NSCustomTouchBarItem(identifier: identifier)
+        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 650, height: 30))
+        stack.orientation = .horizontal
+        stack.spacing = 2
+        stack.distribution = .fillEqually
+
+        let specs: [(String, Selector)] = [
+            ("Clipboard", #selector(showClipboard)),
+            ("Spectrum", #selector(showAudio)),
+            ("MIDI", #selector(showMIDI)),
+            ("Games", #selector(showGames)),
+            ("Savers", #selector(showSavers)),
+            ("KITT", #selector(showKITT)),
+            ("Toki Pona", #selector(showTokiPona)),
+            ("Pond", #selector(showPond))
+        ]
+
+        for (title, action) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 11)
+            stack.addArrangedSubview(button)
+        }
+
+        item.view = stack
+        item.visibilityPriority = .high
+        return item
     }
 
     private func preferredContentWidth() -> CGFloat {
