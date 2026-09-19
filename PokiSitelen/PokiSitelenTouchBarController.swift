@@ -1,7 +1,9 @@
 import AppKit
+import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
+    static let pokiSitelenEscape = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.escape")
     static let pokiSitelenQuit = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.quit")
     static let pokiSitelenClipboard = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.clipboard")
     static let pokiSitelenToki = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.toki")
@@ -20,6 +22,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
+    private var didRequestPostEventAccess = false
 
     func start() {
         guard !isStarted else { return }
@@ -56,8 +59,9 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private func rebuildAndPresent() {
         let bar = NSTouchBar()
         bar.delegate = self
-        // Leave this nil so macOS supplies the real system Escape key.
-        bar.escapeKeyReplacementItemIdentifier = nil
+        // A persistent system-modal Touch Bar occupies the system Escape slot,
+        // so provide a replacement that posts a real HID Escape key event.
+        bar.escapeKeyReplacementItemIdentifier = .pokiSitelenEscape
 
         switch mode {
         case .toki:
@@ -85,6 +89,16 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
+        case .pokiSitelenEscape:
+            let item = compactButtonItem(
+                identifier: identifier,
+                title: "esc",
+                width: 34,
+                action: #selector(sendEscape)
+            )
+            item.view.toolTip = "Escape"
+            return item
+
         case .pokiSitelenQuit:
             let item = compactButtonItem(
                 identifier: identifier,
@@ -152,7 +166,13 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
-        button.font = .systemFont(ofSize: identifier == .pokiSitelenQuit ? 13 : 11)
+        if identifier == .pokiSitelenEscape {
+            button.font = .systemFont(ofSize: 10)
+        } else if identifier == .pokiSitelenQuit {
+            button.font = .systemFont(ofSize: 13)
+        } else {
+            button.font = .systemFont(ofSize: 11)
+        }
 
         host.addSubview(button)
         item.view = host
@@ -168,6 +188,25 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showToki() {
         mode = .toki
         rebuildAndPresent()
+    }
+
+    @objc private func sendEscape() {
+        guard CGPreflightPostEventAccess() else {
+            if !didRequestPostEventAccess {
+                didRequestPostEventAccess = true
+                _ = CGRequestPostEventAccess()
+            }
+            return
+        }
+
+        let source = CGEventSource(stateID: .hidSystemState)
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: false) else {
+            return
+        }
+
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
     }
 
     @objc private func quitPokiSitelen() {
