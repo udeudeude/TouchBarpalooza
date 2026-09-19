@@ -189,10 +189,15 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     }
 
     @objc private func sendEscape() {
-        // The persistent system-modal bar owns the Escape slot. Minimize it
-        // instead of synthesizing a key event, revealing macOS's real Touch Bar
-        // and native Escape key with no Accessibility permission required.
-        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
+        // Dismiss the system-modal bar entirely so macOS can restore the normal
+        // Touch Bar and its real Escape key while leaving the launcher available.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
+        DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard self?.isStarted == true else { return }
+            DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
+        }
     }
 
     @objc private func quitPokiSitelen() {
