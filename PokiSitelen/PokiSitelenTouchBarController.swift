@@ -27,7 +27,7 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .pokiSitelenTray)
-        let trayButton = NSButton(title: "poki", target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(title: "⌂", target: self, action: #selector(presentCurrentBar))
         trayButton.toolTip = "Show poki sitelen"
         trayItem.view = trayButton
         self.trayItem = trayItem
