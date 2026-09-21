@@ -33,6 +33,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.title = ""
         item.button?.image = pokiSitelenAppIcon(size: NSSize(width: 18, height: 18))
+        item.button?.imagePosition = .imageOnly
         item.button?.imageScaling = .scaleProportionallyDown
         item.button?.toolTip = "poki sitelen"
 
