@@ -33,7 +33,7 @@ extension NSButton {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private let welcomeKey = "TouchBarpaloozaHasShownWelcomeV2"
+    private let welcomeKey = "TouchBarpaloozaHasShownWelcomeV3"
 
     private var window: NSWindow?
     private var controller: MainViewController?
@@ -60,12 +60,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.title = "TouchBarpalooza \(shortVersion)"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        // The Getting Started window is intentionally fixed-size. Do not
-        // restore an old autosaved frame here: earlier development builds could
-        // leave behind a very narrow saved width that makes the text unreadable.
-        window.setContentSize(NSSize(width: 620, height: 340))
-        window.center()
+        // Assign the view controller first, then impose the fixed content
+        // size. AppKit can otherwise resize the window to the controller's
+        // fitting size when contentViewController is assigned.
         window.contentViewController = controller
+        let gettingStartedSize = NSSize(width: 620, height: 340)
+        window.contentMinSize = gettingStartedSize
+        window.contentMaxSize = gettingStartedSize
+        window.setContentSize(gettingStartedSize)
+        window.center()
         window.orderOut(nil)
         self.window = window
 
