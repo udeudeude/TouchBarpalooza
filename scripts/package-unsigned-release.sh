@@ -58,7 +58,7 @@ package_app() {
     codesign --verify --deep --strict "$packaged_app"
 
     ln -s /Applications "$staged/Applications"
-    cp "$ROOT/INSTALL_UNSIGNED.md" "$staged/READ ME FIRST.md"
+    cp "$ROOT/INSTALL_UNSIGNED.md" "$staged/READ ME FIRST.txt"
 
     echo "Creating $display_name disk image..."
     hdiutil create \
