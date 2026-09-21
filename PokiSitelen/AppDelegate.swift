@@ -62,6 +62,14 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         aboutItem.target = self
         menu.addItem(aboutItem)
 
+        let reportItem = NSMenuItem(
+            title: "Report a Problem…",
+            action: #selector(reportProblem(_:)),
+            keyEquivalent: ""
+        )
+        reportItem.target = self
+        menu.addItem(reportItem)
+
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -231,6 +239,13 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
             ]
         )
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func reportProblem(_ sender: Any?) {
+        guard let url = URL(string: "https://github.com/udeudeude/TouchBarpalooza/issues/new") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     func windowWillClose(_ notification: Notification) {
