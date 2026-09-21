@@ -33,7 +33,7 @@ extension NSButton {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private let welcomeKey = "TouchBarpaloozaHasShownWelcomeV1"
+    private let welcomeKey = "TouchBarpaloozaHasShownWelcomeV2"
 
     private var window: NSWindow?
     private var controller: MainViewController?
@@ -60,10 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.title = "TouchBarpalooza \(shortVersion)"
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.setFrameAutosaveName("TouchBarpaloozaMainWindow")
-        if !window.setFrameUsingName("TouchBarpaloozaMainWindow") {
-            window.center()
-        }
+        // The Getting Started window is intentionally fixed-size. Do not
+        // restore an old autosaved frame here: earlier development builds could
+        // leave behind a very narrow saved width that makes the text unreadable.
+        window.setContentSize(NSSize(width: 620, height: 340))
+        window.center()
         window.contentViewController = controller
         window.orderOut(nil)
         self.window = window
