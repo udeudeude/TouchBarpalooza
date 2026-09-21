@@ -27,7 +27,6 @@ final class MainViewController: NSViewController {
         2. Tap × to temporarily dismiss TouchBarpalooza and return to the normal Touch Bar.
         3. Tap ⌂ in the Control Strip, or the ⌂ menu-bar icon, to bring TouchBarpalooza back.
 
-        Spectrum asks for microphone access only when you open it. Mario asks for Input Monitoring only when you open that game.
         """)
         instructions.font = .systemFont(ofSize: 13)
         instructions.alignment = .left
