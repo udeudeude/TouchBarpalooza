@@ -2,6 +2,7 @@ name: Package unsigned Mac release
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     tags:
       - "v*"
