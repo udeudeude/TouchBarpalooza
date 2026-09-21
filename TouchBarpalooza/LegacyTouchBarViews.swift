@@ -92,7 +92,7 @@ pipi|bug, insect, spider, small crawling animal
 poka|side, nearby, beside; with, proximity
 poki|container, box, bowl, bag, vessel
 pona|good, simple, positive, useful; improve, fix
-pu|the official Toki Pona book; use/interact with pu
+pu|the official toki pona book; use/interact with pu
 sama|same, similar, equal; like, as
 seli|fire, heat, warmth; hot, cooked
 selo|outer layer, skin, shell, boundary
