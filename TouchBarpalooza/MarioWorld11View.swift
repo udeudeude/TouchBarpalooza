@@ -82,7 +82,7 @@ final class TouchBarPlatformerView: NSView {
     private var usedQuestionBlocks = Set<Int>()
     private var enemies: [Enemy] = []
 
-    private let controlsWidth: CGFloat = 158
+    private let controlsWidth: CGFloat = 181
     private let xScale: CGFloat = 0.55
     private let yScale: CGFloat = 0.17
     private let worldLength: CGFloat = 3392
@@ -212,14 +212,14 @@ final class TouchBarPlatformerView: NSView {
         addSubview(right)
 
         let run = NSButton(title: "RUN", target: self, action: #selector(toggleRun(_:)))
-        run.font = .systemFont(ofSize: 6.5)
-        run.frame = NSRect(x: 98, y: 2, width: 27, height: 26)
+        run.font = .systemFont(ofSize: 7.5)
+        run.frame = NSRect(x: 98, y: 2, width: 35, height: 26)
         run.setButtonType(.pushOnPushOff)
         addSubview(run)
 
         let keys = NSButton(title: "KEYS", target: self, action: #selector(focusKeyboard))
-        keys.font = .monospacedSystemFont(ofSize: 6.2, weight: .bold)
-        keys.frame = NSRect(x: 127, y: 2, width: 29, height: 26)
+        keys.font = .monospacedSystemFont(ofSize: 7.0, weight: .bold)
+        keys.frame = NSRect(x: 135, y: 2, width: 44, height: 26)
         keys.toolTip = "Switch keyboard control to TouchBarpalooza"
         addSubview(keys)
     }

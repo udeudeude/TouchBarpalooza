@@ -76,6 +76,7 @@
 				C20000000000000000000002 /* Sources */,
 				C20000000000000000000001 /* Frameworks */,
 				C20000000000000000000003 /* Resources */,
+				C20000000000000000000004 /* Generate App Icon */,
 			);
 			buildRules = ();
 			dependencies = ();
@@ -120,6 +121,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C20000000000000000000004 /* Generate App Icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputFileListPaths = ();
+			inputPaths = ();
+			name = "Generate App Icon";
+			outputFileListPaths = ();
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/AppIcon.icns",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -e\nmkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n/usr/bin/xcrun swift \"$SRCROOT/scripts/generate-app-icon.swift\" poki-sitelen \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/AppIcon.icns\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C20000000000000000000002 /* Sources */ = {

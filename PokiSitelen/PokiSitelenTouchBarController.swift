@@ -1,9 +1,55 @@
 import AppKit
 
+func pokiSitelenAppIcon(size: NSSize) -> NSImage {
+    if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+       let loaded = NSImage(contentsOf: url),
+       let image = loaded.copy() as? NSImage {
+        image.size = size
+        image.isTemplate = false
+        return image
+    }
+
+    // Fallback: draw the same roof-and-dot mark used by the application icon.
+    let image = NSImage(size: size)
+    image.lockFocus()
+
+    let bounds = NSRect(origin: .zero, size: size)
+    let background = NSBezierPath(
+        roundedRect: bounds.insetBy(dx: size.width * 0.03, dy: size.height * 0.03),
+        xRadius: size.width * 0.19,
+        yRadius: size.height * 0.19
+    )
+    NSColor(calibratedWhite: 0.08, alpha: 1).setFill()
+    background.fill()
+
+    let roof = NSBezierPath()
+    roof.move(to: NSPoint(x: size.width * 0.18, y: size.height * 0.36))
+    roof.line(to: NSPoint(x: size.width * 0.50, y: size.height * 0.69))
+    roof.line(to: NSPoint(x: size.width * 0.82, y: size.height * 0.36))
+    roof.lineCapStyle = .round
+    roof.lineJoinStyle = .round
+    roof.lineWidth = max(1.5, size.width * 0.065)
+    NSColor.white.setStroke()
+    roof.stroke()
+
+    NSColor.white.setFill()
+    NSBezierPath(
+        ovalIn: NSRect(
+            x: size.width * 0.415,
+            y: size.height * 0.21,
+            width: size.width * 0.17,
+            height: size.height * 0.17
+        )
+    ).fill()
+
+    image.unlockFocus()
+    image.isTemplate = false
+    return image
+}
+
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
-    static let pokiSitelenEscape = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.escape")
-    static let pokiSitelenQuit = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.quit")
+    static let pokiSitelenForegroundClose = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.foregroundClose")
     static let pokiSitelenClipboard = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.clipboard")
     static let pokiSitelenToki = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.toki")
     static let pokiSitelenContent = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.content")
@@ -21,15 +67,23 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
+    private var activationObservers: [NSObjectProtocol] = []
 
     func start() {
         guard !isStarted else { return }
         isStarted = true
 
-        DFRSystemModalShowsCloseBoxWhenFrontMost(false)
+        DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .pokiSitelenTray)
-        let trayButton = NSButton(title: "poki", target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(
+            image: pokiSitelenAppIcon(size: NSSize(width: 22, height: 22)),
+            target: self,
+            action: #selector(presentCurrentBar)
+        )
+        trayButton.title = ""
+        trayButton.imagePosition = .imageOnly
+        trayButton.imageScaling = .scaleProportionallyDown
         trayButton.toolTip = "Show poki sitelen"
         trayItem.view = trayButton
         self.trayItem = trayItem
@@ -37,7 +91,29 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         NSTouchBarItem.addSystemTrayItem(trayItem)
         DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
 
+        let center = NotificationCenter.default
+        activationObservers = [
+            center.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            },
+            center.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            }
+        ]
+
         rebuildAndPresent()
+    }
+
+    func showTouchBar() {
+        presentCurrentBar()
     }
 
     func stop() {
@@ -51,23 +127,36 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         }
 
         trayItem = nil
+
+        for observer in activationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        activationObservers.removeAll()
+
         isStarted = false
     }
 
     private func rebuildAndPresent() {
         let bar = NSTouchBar()
         bar.delegate = self
-        // A persistent system-modal Touch Bar occupies the system Escape slot,
-        // so provide a replacement that posts a real HID Escape key event.
-        bar.escapeKeyReplacementItemIdentifier = .pokiSitelenEscape
+        // macOS supplies the native system-modal X when another application
+        // is frontmost. When poki sitelen itself is frontmost, use our own
+        // compact dismiss control in the special left slot instead.
+        bar.escapeKeyReplacementItemIdentifier = NSApp.isActive
+            ? .pokiSitelenForegroundClose
+            : nil
 
         switch mode {
         case .toki:
-            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenClipboard, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenClipboard, .pokiSitelenContent]
         case .clipboard:
-            bar.defaultItemIdentifiers = [.pokiSitelenQuit, .pokiSitelenToki, .pokiSitelenContent]
+            bar.defaultItemIdentifiers = [.pokiSitelenToki, .pokiSitelenContent]
         }
 
+        // The private presenter stacks system-modal bars. Dismiss the current
+        // layer before replacing it so repeated poki/toki navigation still
+        // leaves exactly one dismissible bar.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         touchBar = bar
         presentCurrentBar()
     }
@@ -75,6 +164,9 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func presentCurrentBar() {
         guard isStarted else { return }
 
+        // Re-presenting an already visible bar creates another modal layer.
+        // Normalize to one layer for both navigation and Control Strip restores.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         NSTouchBar.presentSystemModalTouchBar(
             touchBar,
             systemTrayItemIdentifier: .pokiSitelenTray
@@ -87,24 +179,14 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .pokiSitelenEscape:
+        case .pokiSitelenForegroundClose:
             let item = compactButtonItem(
                 identifier: identifier,
-                title: "esc",
+                title: "×",
                 width: 34,
-                action: #selector(sendEscape)
+                action: #selector(dismissForRealEscape)
             )
-            item.view.toolTip = "Reveal the normal Touch Bar and real Escape key"
-            return item
-
-        case .pokiSitelenQuit:
-            let item = compactButtonItem(
-                identifier: identifier,
-                title: "ⓧ",
-                width: 28,
-                action: #selector(quitPokiSitelen)
-            )
-            item.view.toolTip = "Quit poki sitelen"
+            item.view.toolTip = "Close poki sitelen and reveal the normal Touch Bar"
             return item
 
         case .pokiSitelenClipboard:
@@ -164,18 +246,24 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         let button = NSButton(title: title, target: self, action: action)
 
         button.frame = NSRect(x: 0, y: 1, width: width, height: 28)
-        if identifier == .pokiSitelenEscape {
-            button.font = .systemFont(ofSize: 10)
-        } else if identifier == .pokiSitelenQuit {
-            button.font = .systemFont(ofSize: 13)
-        } else {
-            button.font = .systemFont(ofSize: 11)
-        }
+        button.font = .systemFont(
+            ofSize: identifier == .pokiSitelenForegroundClose ? 13 : 11
+        )
 
         host.addSubview(button)
         item.view = host
         item.visibilityPriority = .high
         return item
+    }
+
+    @objc private func dismissForRealEscape() {
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
+        DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard self?.isStarted == true else { return }
+            DFRElementSetControlStripPresenceForIdentifier(.pokiSitelenTray, true)
+        }
     }
 
     @objc private func showClipboard() {
@@ -188,17 +276,6 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         rebuildAndPresent()
     }
 
-    @objc private func sendEscape() {
-        // The persistent system-modal bar owns the Escape slot. Minimize it
-        // instead of synthesizing a key event, revealing macOS's real Touch Bar
-        // and native Escape key with no Accessibility permission required.
-        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
-    }
-
-    @objc private func quitPokiSitelen() {
-        stop()
-        NSApp.terminate(nil)
-    }
 }
 
 private final class FixedPokiSitelenButtonHost: NSView {

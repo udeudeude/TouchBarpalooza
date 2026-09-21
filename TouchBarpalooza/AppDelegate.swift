@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 
 extension NSButton {
     var periodicDelay: Float {
@@ -33,40 +32,116 @@ extension NSButton {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private let welcomeKey = "TouchBarpaloozaHasShownWelcomeV3"
+
     private var window: NSWindow?
     private var controller: MainViewController?
+    private var statusItem: NSStatusItem?
     private let globalTouchBarController = GlobalTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // TouchBarpalooza is primarily a persistent Touch Bar utility. Run as
+        // an accessory app so normal use does not steal foreground focus.
+        NSApp.setActivationPolicy(.accessory)
+
         configureApplicationMenu()
-        requestInputMonitoringIfNeeded()
+        configureStatusItem()
 
         let controller = MainViewController()
         self.controller = controller
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 220),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 340),
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "TouchBarpalooza \(shortVersion)"
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("TouchBarpaloozaMainWindow")
-        if !window.setFrameUsingName("TouchBarpaloozaMainWindow") {
-            window.center()
-        }
+        window.delegate = self
+        // Assign the view controller first, then impose the fixed content
+        // size. AppKit can otherwise resize the window to the controller's
+        // fitting size when contentViewController is assigned.
         window.contentViewController = controller
-        window.makeKeyAndOrderFront(nil)
+        let gettingStartedSize = NSSize(width: 620, height: 340)
+        window.contentMinSize = gettingStartedSize
+        window.contentMaxSize = gettingStartedSize
+        window.setContentSize(gettingStartedSize)
+        window.center()
+        window.orderOut(nil)
         self.window = window
 
         globalTouchBarController.start()
-        NSApp.activate(ignoringOtherApps: true)
+
+        let firstLaunch = !UserDefaults.standard.bool(forKey: welcomeKey)
+        if firstLaunch {
+            UserDefaults.standard.set(true, forKey: welcomeKey)
+            showMainWindow(nil)
+        } else {
+            DispatchQueue.main.async {
+                NSApp.hide(nil)
+            }
+        }
     }
 
     private var shortVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
+
+    private func configureStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.title = "⌂"
+        item.button?.toolTip = "TouchBarpalooza"
+
+        let menu = NSMenu()
+
+        let showTouchBarItem = NSMenuItem(
+            title: "Show TouchBarpalooza on Touch Bar",
+            action: #selector(showTouchBarFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        showTouchBarItem.target = self
+        menu.addItem(showTouchBarItem)
+
+        let gettingStartedItem = NSMenuItem(
+            title: "Getting Started",
+            action: #selector(showMainWindow(_:)),
+            keyEquivalent: ""
+        )
+        gettingStartedItem.target = self
+        menu.addItem(gettingStartedItem)
+
+        menu.addItem(.separator())
+
+        let aboutItem = NSMenuItem(
+            title: "About TouchBarpalooza",
+            action: #selector(showAboutPanel(_:)),
+            keyEquivalent: ""
+        )
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+
+        let reportItem = NSMenuItem(
+            title: "Report a Problem…",
+            action: #selector(reportProblem(_:)),
+            keyEquivalent: ""
+        )
+        reportItem.target = self
+        menu.addItem(reportItem)
+
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit TouchBarpalooza",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.target = NSApp
+        menu.addItem(quitItem)
+
+        item.menu = menu
+        statusItem = item
     }
 
     private func configureApplicationMenu() {
@@ -83,12 +158,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applicationMenu.addItem(aboutItem)
 
         let showWindowItem = NSMenuItem(
-            title: "Show TouchBarpalooza Window",
+            title: "Getting Started",
             action: #selector(showMainWindow(_:)),
             keyEquivalent: ""
         )
         showWindowItem.target = self
         applicationMenu.addItem(showWindowItem)
+
+        let showTouchBarItem = NSMenuItem(
+            title: "Show TouchBarpalooza on Touch Bar",
+            action: #selector(showTouchBarFromMenu(_:)),
+            keyEquivalent: ""
+        )
+        showTouchBarItem.target = self
+        applicationMenu.addItem(showTouchBarItem)
 
         applicationMenu.addItem(.separator())
 
@@ -114,9 +197,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
+    @objc private func showTouchBarFromMenu(_ sender: Any?) {
+        globalTouchBarController.showTouchBar()
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
+        }
+    }
+
     @objc private func showAboutPanel(_ sender: Any?) {
         NSApp.orderFrontStandardAboutPanel(sender)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func reportProblem(_ sender: Any?) {
+        guard let url = URL(string: "https://github.com/udeudeude/TouchBarpalooza/issues/new") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func showMainWindow(_ sender: Any?) {
@@ -124,9 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func requestInputMonitoringIfNeeded() {
-        if !CGPreflightListenEventAccess() {
-            _ = CGRequestListenEventAccess()
+    func windowWillClose(_ notification: Notification) {
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
         }
     }
 

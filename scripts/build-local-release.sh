@@ -76,7 +76,19 @@ if [[ "${1:-}" == "--install" ]]; then
     if pgrep -x TouchBarpalooza >/dev/null 2>&1; then
         echo "Stopping the currently running TouchBarpalooza..."
         osascript -e 'tell application "TouchBarpalooza" to quit' >/dev/null 2>&1 || true
-        sleep 1
+
+        for _ in 1 2 3 4 5; do
+            if ! pgrep -x TouchBarpalooza >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.2
+        done
+
+        if pgrep -x TouchBarpalooza >/dev/null 2>&1; then
+            echo "Old process is still running; stopping it forcefully..."
+            pkill -x TouchBarpalooza || true
+            sleep 0.5
+        fi
     fi
 
     echo "Installing to $INSTALL_APP..."

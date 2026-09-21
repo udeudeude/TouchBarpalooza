@@ -1,184 +1,85 @@
 import AppKit
 
-private extension NSTouchBar.CustomizationIdentifier {
-    static let touchBarpalooza = NSTouchBar.CustomizationIdentifier("com.udeudeude.TouchBarpalooza")
-}
-
-private extension NSTouchBarItem.Identifier {
-    static let home = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.home")
-    static let lemmings = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.lemmings")
-    static let meters = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.meters")
-    static let clipboard = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.clipboard")
-    static let notes = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.notes")
-    static let about = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.about")
-    static let canvas = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.canvas")
-    static let placeholder = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.placeholder")
-}
-
-private final class TouchBarHostView: NSView {
-    override var acceptsFirstResponder: Bool { true }
-}
-
-final class MainViewController: NSViewController, NSTouchBarDelegate {
-    private enum Mode {
-        case home
-        case lemmings
-        case placeholder(String)
-    }
-
-    private var mode: Mode = .home
-
+final class MainViewController: NSViewController {
     private var shortVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     override func loadView() {
-        let root = TouchBarHostView()
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 340))
         root.wantsLayer = true
 
         let title = NSTextField(labelWithString: "TouchBarpalooza")
-        title.font = .systemFont(ofSize: 26, weight: .semibold)
+        title.font = .systemFont(ofSize: 28, weight: .semibold)
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let subtitle = NSTextField(
-            labelWithString: "Version \(shortVersion). The interesting part is on the Touch Bar."
+            labelWithString: "Version \(shortVersion) is running on your Touch Bar."
         )
         subtitle.font = .systemFont(ofSize: 14)
         subtitle.textColor = .secondaryLabelColor
         subtitle.alignment = .center
         subtitle.translatesAutoresizingMaskIntoConstraints = false
 
-        root.addSubview(title)
-        root.addSubview(subtitle)
+        let instructions = NSTextField(wrappingLabelWithString: """
+        1. Use the buttons directly on the Touch Bar.
+        2. Tap × to temporarily dismiss TouchBarpalooza and return to the normal Touch Bar.
+        3. Tap ⌂ in the Control Strip, or the ⌂ menu-bar icon, to bring TouchBarpalooza back.
+
+        """)
+        instructions.font = .systemFont(ofSize: 13)
+        instructions.alignment = .left
+        instructions.translatesAutoresizingMaskIntoConstraints = false
+
+        let note = NSTextField(
+            wrappingLabelWithString: "Requires a physical Touch Bar. TouchBarpalooza uses private macOS Touch Bar interfaces, so behavior on other Mac models and macOS versions is not yet verified."
+        )
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
+        note.alignment = .center
+        note.translatesAutoresizingMaskIntoConstraints = false
+
+        let closeHint = NSTextField(
+            labelWithString: "You can close this window. TouchBarpalooza keeps running from the menu bar."
+        )
+        closeHint.font = .systemFont(ofSize: 11)
+        closeHint.textColor = .tertiaryLabelColor
+        closeHint.alignment = .center
+        closeHint.translatesAutoresizingMaskIntoConstraints = false
+
+        for subview in [title, subtitle, instructions, note, closeHint] {
+            root.addSubview(subview)
+        }
 
         NSLayoutConstraint.activate([
+            title.topAnchor.constraint(equalTo: root.topAnchor, constant: 30),
             title.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            title.centerYAnchor.constraint(equalTo: root.centerYAnchor, constant: -16),
+
+            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
             subtitle.centerXAnchor.constraint(equalTo: root.centerXAnchor),
-            subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 10)
+
+            instructions.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 24),
+            instructions.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 54),
+            instructions.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -54),
+
+            note.topAnchor.constraint(equalTo: instructions.bottomAnchor, constant: 22),
+            note.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 42),
+            note.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -42),
+
+            closeHint.topAnchor.constraint(equalTo: note.bottomAnchor, constant: 18),
+            closeHint.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            closeHint.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -22)
         ])
 
-        self.view = root
-    }
-
-    override func viewDidAppear() {
-        super.viewDidAppear()
-        installTouchBar()
+        preferredContentSize = NSSize(width: 620, height: 340)
+        view = root
     }
 
     override func makeTouchBar() -> NSTouchBar? {
-        buildTouchBar()
-    }
-
-    private func installTouchBar() {
-        let bar = buildTouchBar()
-
-        // Put the same bar on every responder that can plausibly win the
-        // Touch Bar lookup. Most importantly, the root view explicitly
-        // accepts first-responder status and owns this bar directly.
-        touchBar = bar
-        view.touchBar = bar
-        view.window?.touchBar = bar
-        view.window?.makeFirstResponder(view)
-
-        print("TouchBarpalooza: first responder is host view = \(view.window?.firstResponder === view)")
-    }
-
-    private func buildTouchBar() -> NSTouchBar {
-        let bar = NSTouchBar()
-        bar.delegate = self
-        bar.customizationIdentifier = .touchBarpalooza
-
-        switch mode {
-        case .home:
-            bar.defaultItemIdentifiers = [.lemmings, .meters, .clipboard, .notes, .about]
-        case .lemmings:
-            bar.escapeKeyReplacementItemIdentifier = .home
-            bar.defaultItemIdentifiers = [.canvas]
-            bar.principalItemIdentifier = .canvas
-        case .placeholder:
-            bar.escapeKeyReplacementItemIdentifier = .home
-            bar.defaultItemIdentifiers = [.placeholder]
-            bar.principalItemIdentifier = .placeholder
-        }
-        return bar
-    }
-
-    func touchBar(_ touchBar: NSTouchBar, makeItemForIdentifier identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
-        switch identifier {
-        case .home:
-            return buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
-        case .lemmings:
-            return buttonItem(identifier: identifier, title: "Lemmings", action: #selector(showLemmings))
-        case .meters:
-            return buttonItem(identifier: identifier, title: "Meters", action: #selector(showMeters))
-        case .clipboard:
-            return buttonItem(identifier: identifier, title: "Clipboard", action: #selector(showClipboard))
-        case .notes:
-            return buttonItem(identifier: identifier, title: "Notes", action: #selector(showNotes))
-        case .about:
-            return buttonItem(identifier: identifier, title: "About", action: #selector(showAbout))
-        case .canvas:
-            let item = NSCustomTouchBarItem(identifier: identifier)
-            let lemmings = LemmingsView(frame: NSRect(x: 0, y: 0, width: 700, height: 30))
-            lemmings.translatesAutoresizingMaskIntoConstraints = false
-            lemmings.widthAnchor.constraint(greaterThanOrEqualToConstant: 650).isActive = true
-            lemmings.heightAnchor.constraint(equalToConstant: 30).isActive = true
-            item.view = lemmings
-            return item
-        case .placeholder:
-            let item = NSCustomTouchBarItem(identifier: identifier)
-            let label = NSTextField(labelWithString: placeholderText)
-            label.alignment = .center
-            label.font = .systemFont(ofSize: 14, weight: .medium)
-            item.view = label
-            return item
-        default:
-            return nil
-        }
-    }
-
-    private var placeholderText: String {
-        if case let .placeholder(name) = mode {
-            return "\(name) is reserved for the next TouchBarpalooza experiment."
-        }
-        return ""
-    }
-
-    private func buttonItem(identifier: NSTouchBarItem.Identifier, title: String, action: Selector) -> NSTouchBarItem {
-        let item = NSCustomTouchBarItem(identifier: identifier)
-        item.view = NSButton(title: title, target: self, action: action)
-        return item
-    }
-
-    @objc private func showHome() {
-        mode = .home
-        installTouchBar()
-    }
-
-    @objc private func showLemmings() {
-        mode = .lemmings
-        installTouchBar()
-    }
-
-    @objc private func showMeters() {
-        mode = .placeholder("Meters")
-        installTouchBar()
-    }
-
-    @objc private func showClipboard() {
-        mode = .placeholder("Clipboard")
-        installTouchBar()
-    }
-
-    @objc private func showNotes() {
-        mode = .placeholder("Notes")
-        installTouchBar()
-    }
-
-    @objc private func showAbout() {
-        mode = .placeholder("TouchBarpalooza v\(shortVersion)")
-        installTouchBar()
+        // The persistent system-modal controller is TouchBarpalooza's only
+        // Touch Bar host. Returning nil prevents the obsolete prototype bar
+        // from appearing after the system-modal bar is dismissed.
+        nil
     }
 }

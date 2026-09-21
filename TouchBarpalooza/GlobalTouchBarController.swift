@@ -1,9 +1,9 @@
 import AppKit
+import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
-    static let touchBarpaloozaEscape = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.escape")
-    static let touchBarpaloozaQuit = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.quit")
+    static let touchBarpaloozaForegroundClose = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.foregroundClose")
     static let touchBarpaloozaHome = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.home")
 
     static let touchBarpaloozaLemmings = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.lemmings")
@@ -22,6 +22,7 @@ private extension NSTouchBarItem.Identifier {
 
     static let gamesCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.games.compact")
     static let saversCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.savers.compact")
+    static let homeCompact = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.home.compact")
     static let content = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.content")
 }
 
@@ -56,23 +57,47 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     private var touchBar = NSTouchBar()
     private var trayItem: NSCustomTouchBarItem?
     private var isStarted = false
+    private var activationObservers: [NSObjectProtocol] = []
     private weak var currentLemmingsView: LemmingsView?
     private var lemmingsSkillButtons: [NSButton] = []
 
     func start() {
         guard !isStarted else { return }
         isStarted = true
-        DFRSystemModalShowsCloseBoxWhenFrontMost(false)
+        DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .touchBarpaloozaTray)
-        let trayButton = NSButton(title: "TP", target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(title: "⌂", target: self, action: #selector(presentCurrentBar))
         trayButton.toolTip = "Show TouchBarpalooza"
         trayItem.view = trayButton
         self.trayItem = trayItem
 
         NSTouchBarItem.addSystemTrayItem(trayItem)
         DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+
+        let center = NotificationCenter.default
+        activationObservers = [
+            center.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            },
+            center.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                self?.rebuildAndPresent()
+            }
+        ]
+
         rebuildAndPresent()
+    }
+
+    func showTouchBar() {
+        presentCurrentBar()
     }
 
     func stop() {
@@ -83,6 +108,12 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             NSTouchBarItem.removeSystemTrayItem(trayItem)
         }
         trayItem = nil
+
+        for observer in activationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        activationObservers.removeAll()
+
         isStarted = false
     }
 
@@ -92,23 +123,19 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let bar = NSTouchBar()
         bar.delegate = self
-        // A persistent system-modal Touch Bar occupies the system Escape slot,
-        // so provide a replacement that posts a real HID Escape key event.
-        bar.escapeKeyReplacementItemIdentifier = .touchBarpaloozaEscape
+        // When another app is frontmost, macOS supplies the native system-
+        // modal X. When TouchBarpalooza itself is frontmost that native X
+        // disappears, so occupy the special left slot with our own dismiss
+        // button only for that state.
+        bar.escapeKeyReplacementItemIdentifier = NSApp.isActive
+            ? .touchBarpaloozaForegroundClose
+            : nil
 
         switch mode {
         case .home:
-            bar.defaultItemIdentifiers = [
-                .touchBarpaloozaQuit,
-                .touchBarpaloozaClipboard,
-                .touchBarpaloozaAudio,
-                .touchBarpaloozaMIDI,
-                .touchBarpaloozaGames,
-                .touchBarpaloozaSavers,
-                .touchBarpaloozaKITT,
-                .touchBarpaloozaTokiPona,
-                .touchBarpaloozaPond
-            ]
+            // Treat the launcher as one compact item so macOS cannot evict the
+            // last button (Pond) when it inserts the native modal close box.
+            bar.defaultItemIdentifiers = [.homeCompact]
         case .lemmingsMenu:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .lemmingsPlay, .lemmingsDemo]
         case .lemmingsPlay:
@@ -116,21 +143,33 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .lemmingsDemo:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         case .gamesMenu:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .gamesCompact]
+            // Keep navigation and all game buttons inside one host item. If Home
+            // is a separate item, macOS may evict the entire games item once the
+            // native modal close box and Control Strip are accounted for.
+            bar.defaultItemIdentifiers = [.gamesCompact]
         case .saversMenu:
-            bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .saversCompact]
+            bar.defaultItemIdentifiers = [.saversCompact]
         case .clipboard, .audio, .midi, .pong, .snake, .breakout, .life,
              .pitfall, .et, .mario, .adventure, .dvdSaver, .pipesSaver,
              .toastersSaver, .kitt, .tokiPona, .pond:
             bar.defaultItemIdentifiers = [.touchBarpaloozaHome, .content]
         }
 
+        // The private presenter stacks system-modal bars. Dismiss the current
+        // layer before replacing it, otherwise every navigation tap adds another
+        // layer and the native close box has to be tapped once per layer.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         touchBar = bar
         presentCurrentBar()
     }
 
     @objc private func presentCurrentBar() {
         guard isStarted else { return }
+
+        // Re-presenting an already visible bar stacks another modal layer too.
+        // Normalize to exactly one layer whether this came from navigation or
+        // the Control Strip launcher.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         NSTouchBar.presentSystemModalTouchBar(
             touchBar,
             systemTrayItemIdentifier: .touchBarpaloozaTray
@@ -143,15 +182,14 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         makeItemForIdentifier identifier: NSTouchBarItem.Identifier
     ) -> NSTouchBarItem? {
         switch identifier {
-        case .touchBarpaloozaEscape:
-            let item = buttonItem(identifier: identifier, title: "esc", action: #selector(sendEscape))
+        case .touchBarpaloozaForegroundClose:
+            let item = buttonItem(
+                identifier: identifier,
+                title: "×",
+                action: #selector(dismissForRealEscape)
+            )
             item.visibilityPriority = .high
-            item.view.toolTip = "Reveal the normal Touch Bar and real Escape key"
-            return item
-        case .touchBarpaloozaQuit:
-            let item = buttonItem(identifier: identifier, title: "ⓧ", action: #selector(quitTouchBarpalooza))
-            item.visibilityPriority = .high
-            item.view.toolTip = "Quit TouchBarpalooza"
+            item.view.toolTip = "Close TouchBarpalooza and reveal the normal Touch Bar"
             return item
         case .touchBarpaloozaHome:
             let item = buttonItem(identifier: identifier, title: "⌂", action: #selector(showHome))
@@ -172,7 +210,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .touchBarpaloozaKITT:
             return buttonItem(identifier: identifier, title: "KITT", action: #selector(showKITT))
         case .touchBarpaloozaTokiPona:
-            return buttonItem(identifier: identifier, title: "Toki Pona", action: #selector(showTokiPona))
+            return buttonItem(identifier: identifier, title: "toki pona", action: #selector(showTokiPona))
         case .touchBarpaloozaPond:
             return buttonItem(identifier: identifier, title: "Pond", action: #selector(showPond))
         case .lemmingsPlay:
@@ -185,11 +223,45 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             return gamesMenuItem(identifier: identifier)
         case .saversCompact:
             return saversMenuItem(identifier: identifier)
+        case .homeCompact:
+            return homeMenuItem(identifier: identifier)
         case .content:
             return contentItem(identifier: identifier)
         default:
             return nil
         }
+    }
+
+    private func homeMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
+        let item = NSCustomTouchBarItem(identifier: identifier)
+        let host = FixedTouchBarView(size: NSSize(width: 650, height: 30))
+        let stack = NSStackView(frame: host.bounds)
+        stack.orientation = .horizontal
+        stack.spacing = 2
+        stack.distribution = .fillEqually
+        stack.autoresizingMask = [.width, .height]
+
+        let specs: [(String, Selector)] = [
+            ("Clipboard", #selector(showClipboard)),
+            ("Spectrum", #selector(showAudio)),
+            ("MIDI", #selector(showMIDI)),
+            ("Games", #selector(showGames)),
+            ("Savers", #selector(showSavers)),
+            ("KITT", #selector(showKITT)),
+            ("toki pona", #selector(showTokiPona)),
+            ("Pond", #selector(showPond))
+        ]
+
+        for (title, action) in specs {
+            let button = NSButton(title: title, target: self, action: action)
+            button.font = .systemFont(ofSize: 10)
+            stack.addArrangedSubview(button)
+        }
+
+        host.addSubview(stack)
+        item.view = host
+        item.visibilityPriority = .high
+        return item
     }
 
     private func preferredContentWidth() -> CGFloat {
@@ -368,41 +440,58 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     private func gamesMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 545, height: 30))
-        stack.orientation = .horizontal
-        stack.spacing = 2
-        stack.distribution = .fillEqually
 
-        let specs: [(String, Selector)] = [
-            ("Life", #selector(showLife)),
-            ("Pong", #selector(showPong)),
-            ("Cave", #selector(showAdventure)),
-            ("Break", #selector(showBreakout)),
-            ("Snake", #selector(showSnake)),
-            ("Pit", #selector(showPitfall)),
-            ("E.T.", #selector(showET)),
-            ("Mario", #selector(showMario)),
-            ("Lemmings", #selector(showLemmingsMenu))
+        // Use explicit compact widths instead of equal-width stack cells. The
+        // standard Touch Bar button chrome has generous horizontal insets, so
+        // equal distribution wastes enough room to clip the final game.
+        let specs: [(String, CGFloat, Selector)] = [
+            ("⌂", 32, #selector(showHome)),
+            ("Life", 44, #selector(showLife)),
+            ("Pong", 48, #selector(showPong)),
+            ("Cave", 48, #selector(showAdventure)),
+            ("Break", 50, #selector(showBreakout)),
+            ("Snake", 52, #selector(showSnake)),
+            ("Pit", 38, #selector(showPitfall)),
+            ("E.T.", 40, #selector(showET)),
+            ("Mario", 50, #selector(showMario)),
+            ("Lemmings", 66, #selector(showLemmingsMenu))
         ]
 
-        for (title, action) in specs {
-            let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: 8)
-            stack.addArrangedSubview(button)
+        let spacing: CGFloat = 2
+        let totalWidth = specs.reduce(CGFloat.zero) { $0 + $1.1 }
+            + spacing * CGFloat(specs.count - 1)
+        let host = FixedTouchBarView(size: NSSize(width: totalWidth, height: 30))
+
+        var x: CGFloat = 0
+        for (title, width, action) in specs {
+            let button = NSButton(
+                frame: NSRect(x: x, y: 1, width: width, height: 28)
+            )
+            button.title = title
+            button.target = self
+            button.action = action
+            button.controlSize = .mini
+            button.font = .systemFont(ofSize: title == "⌂" ? 11 : 8)
+            host.addSubview(button)
+            x += width + spacing
         }
 
-        item.view = stack
+        item.view = host
+        item.visibilityPriority = .high
         return item
     }
 
     private func saversMenuItem(identifier: NSTouchBarItem.Identifier) -> NSTouchBarItem {
         let item = NSCustomTouchBarItem(identifier: identifier)
-        let stack = NSStackView(frame: NSRect(x: 0, y: 0, width: 270, height: 30))
+        let host = FixedTouchBarView(size: NSSize(width: 320, height: 30))
+        let stack = NSStackView(frame: host.bounds)
         stack.orientation = .horizontal
         stack.spacing = 2
         stack.distribution = .fillEqually
+        stack.autoresizingMask = [.width, .height]
 
         let specs: [(String, Selector)] = [
+            ("⌂", #selector(showHome)),
             ("DVD", #selector(showDVD)),
             ("Pipes", #selector(showPipes)),
             ("Toasters", #selector(showToasters))
@@ -410,11 +499,13 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         for (title, action) in specs {
             let button = NSButton(title: title, target: self, action: action)
-            button.font = .systemFont(ofSize: 8)
+            button.font = .systemFont(ofSize: title == "⌂" ? 12 : 8)
             stack.addArrangedSubview(button)
         }
 
-        item.view = stack
+        host.addSubview(stack)
+        item.view = host
+        item.visibilityPriority = .high
         return item
     }
 
@@ -428,9 +519,9 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
         let compactWidth: CGFloat?
         switch identifier {
-        case .touchBarpaloozaEscape:
+        case .touchBarpaloozaForegroundClose:
             compactWidth = 34
-        case .touchBarpaloozaQuit, .touchBarpaloozaHome:
+        case .touchBarpaloozaHome:
             compactWidth = 28
         default:
             compactWidth = nil
@@ -439,13 +530,25 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         if let compactWidth {
             let host = FixedTouchBarView(size: NSSize(width: compactWidth, height: 30))
             button.frame = NSRect(x: 0, y: 1, width: compactWidth, height: 28)
-            button.font = .systemFont(ofSize: identifier == .touchBarpaloozaEscape ? 10 : 13)
+            button.font = .systemFont(ofSize: 13)
             host.addSubview(button)
             item.view = host
         } else {
             item.view = button
         }
         return item
+    }
+
+    @objc private func dismissForRealEscape() {
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
+
+        // Keep the Control Strip launcher available so the persistent bar can
+        // be restored with one tap after using the real system Escape key.
+        DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard self?.isStarted == true else { return }
+            DFRElementSetControlStripPresenceForIdentifier(.touchBarpaloozaTray, true)
+        }
     }
 
     @objc private func skillButtonPressed(_ sender: NSButton) {
@@ -458,19 +561,6 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
 
     @objc private func nukeLemmings() {
         currentLemmingsView?.nuke()
-    }
-
-    @objc private func sendEscape() {
-        // A system-modal Touch Bar cannot expose macOS's native Escape button
-        // in-place. Minimize our bar instead, immediately revealing the normal
-        // Touch Bar and its real system Escape key. The Control Strip tray item
-        // remains available to restore TouchBarpalooza.
-        NSTouchBar.minimizeSystemModalTouchBar(touchBar)
-    }
-
-    @objc private func quitTouchBarpalooza() {
-        stop()
-        NSApp.terminate(nil)
     }
 
     @objc private func showHome() { mode = .home; rebuildAndPresent() }
@@ -488,7 +578,16 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showLife() { mode = .life; rebuildAndPresent() }
     @objc private func showPitfall() { mode = .pitfall; rebuildAndPresent() }
     @objc private func showET() { mode = .et; rebuildAndPresent() }
-    @objc private func showMario() { mode = .mario; rebuildAndPresent() }
+    @objc private func showMario() {
+        // Mario is the only feature that needs global keyboard events.
+        // Ask for Input Monitoring only when the user actually chooses it,
+        // instead of presenting a privacy prompt on first launch.
+        if !CGPreflightListenEventAccess() {
+            _ = CGRequestListenEventAccess()
+        }
+        mode = .mario
+        rebuildAndPresent()
+    }
     @objc private func showAdventure() { mode = .adventure; rebuildAndPresent() }
     @objc private func showDVD() { mode = .dvdSaver; rebuildAndPresent() }
     @objc private func showPipes() { mode = .pipesSaver; rebuildAndPresent() }

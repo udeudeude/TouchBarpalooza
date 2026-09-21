@@ -5,6 +5,7 @@ build/
 dist/
 *.xcuserstate
 xcuserdata/
+*.xcodeproj/project.xcworkspace/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint
