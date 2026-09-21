@@ -4,8 +4,16 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate {
     private let touchBarController = PokiSitelenTouchBarController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Match TouchBarpalooza's operating model: stay out of the foreground
+        // during normal use so macOS can supply the native system-modal X.
+        NSApp.setActivationPolicy(.accessory)
+
         configureApplicationMenu()
         touchBarController.start()
+
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
+        }
     }
 
     private func configureApplicationMenu() {
