@@ -8,6 +8,24 @@ It includes its own **system-modal Touch Bar host**, so the TouchBarpalooza inte
 
 The current standalone build is **TouchBarpalooza 0.3**. It has been built as a universal Mac application for both Intel and Apple silicon and tested running directly from `/Applications` on a physical Touch Bar Mac.
 
+## Download and install
+
+The project currently does **not** use a paid Apple Developer account, so downloadable builds are intentionally ad-hoc signed rather than Developer ID signed or notarized. They can still be distributed as normal Mac apps, but macOS requires the user to explicitly approve the app the first time it is opened.
+
+For the friendliest current installation:
+
+1. Download the latest `.dmg` from **GitHub Releases**.
+2. Open it and drag the app into **Applications**.
+3. Try to open the app once.
+4. If macOS blocks it, use **Privacy & Security → Open Anyway**.
+5. Follow the short Getting Started window shown on first launch.
+
+See [INSTALL_UNSIGNED.md](INSTALL_UNSIGNED.md) for exact instructions, including older macOS versions and the security implications of opening an app that is not notarized.
+
+Both apps now keep a **⌂ menu-bar icon** available for restoring the Touch Bar, reopening Getting Started, viewing About, or quitting.
+
+TouchBarpalooza does not ask for privacy permissions merely because it launched. **Spectrum** requests microphone access only when opened, and **Mario** requests Input Monitoring only when opened.
+
 ## Companion app: poki sitelen
 
 The repository also includes **poki sitelen**, a smaller standalone Touch Bar app built from the Toki Pona and clipboard parts of TouchBarpalooza. The name combines *poki* (container) with *sitelen* (writing/image), a natural Toki Pona description of a clipboard.
@@ -93,7 +111,7 @@ bash scripts/build-local-release.sh --install
 
 The release script verifies the app bundle, version, bundle identifier, processor architectures, private framework linkage, and local code signature.
 
-In standalone use, TouchBarpalooza can operate without keeping a desktop window in the way. The macOS application menu remains available for normal application commands such as About and Quit.
+In standalone use, TouchBarpalooza can operate without keeping a desktop window in the way. A small **⌂ menu-bar item** remains available for restoring the Touch Bar, Getting Started, About, and Quit.
 
 ## Develop from Xcode
 
@@ -116,7 +134,7 @@ Current project settings:
 - Swift 5
 - universal Intel (`x86_64`) + Apple silicon (`arm64`) builds
 
-Actual Touch Bar behavior still needs hardware testing because the persistent host uses private macOS interfaces.
+Those settings describe the intended build range, not a guarantee that every Touch Bar model and macOS release has been verified. The persistent host uses private macOS interfaces, and current physical testing is limited to the developer's present Touch Bar Mac. Reports from other Touch Bar models and macOS versions are especially useful.
 
 ## Private API note
 
