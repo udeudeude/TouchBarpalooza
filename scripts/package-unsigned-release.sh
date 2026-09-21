@@ -20,6 +20,8 @@ build_app() {
         -target "$target" \
         -configuration Release \
         SYMROOT="$build_dir" \
+        ARCHS="x86_64 arm64" \
+        ONLY_ACTIVE_ARCH=NO \
         CODE_SIGNING_ALLOWED=NO \
         build
 }
@@ -56,6 +58,24 @@ package_app() {
     # first time the downloaded app is opened.
     codesign --force --deep --sign - "$packaged_app"
     codesign --verify --deep --strict "$packaged_app"
+
+    local executable_name
+    executable_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$packaged_app/Contents/Info.plist")
+    local architectures
+    architectures=$(lipo -archs "$packaged_app/Contents/MacOS/$executable_name")
+    if [[ "$architectures" != *"x86_64"* || "$architectures" != *"arm64"* ]]; then
+        echo "Expected a universal Intel + Apple silicon build, got: $architectures"
+        exit 1
+    fi
+
+    if [[ ! -f "$packaged_app/Contents/Resources/AppIcon.icns" ]]; then
+        echo "App icon missing from packaged app: $packaged_app"
+        exit 1
+    fi
+
+    echo "  Architectures: $architectures"
+    echo "  Ad-hoc signature: verified"
+    echo "  App icon: present"
 
     ln -s /Applications "$staged/Applications"
     cp "$ROOT/INSTALL_UNSIGNED.md" "$staged/READ ME FIRST.txt"
