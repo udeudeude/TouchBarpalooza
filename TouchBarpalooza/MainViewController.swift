@@ -6,7 +6,7 @@ final class MainViewController: NSViewController {
     }
 
     override func loadView() {
-        let root = NSView()
+        let root = NSView(frame: NSRect(x: 0, y: 0, width: 620, height: 340))
         root.wantsLayer = true
 
         let title = NSTextField(labelWithString: "TouchBarpalooza")
@@ -73,6 +73,7 @@ final class MainViewController: NSViewController {
             closeHint.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -22)
         ])
 
+        preferredContentSize = NSSize(width: 620, height: 340)
         view = root
     }
 
