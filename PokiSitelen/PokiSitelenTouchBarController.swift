@@ -58,6 +58,10 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         rebuildAndPresent()
     }
 
+    func showTouchBar() {
+        presentCurrentBar()
+    }
+
     func stop() {
         guard isStarted else { return }
 
