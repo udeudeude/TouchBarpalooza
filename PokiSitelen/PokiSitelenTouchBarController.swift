@@ -65,6 +65,10 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
             bar.defaultItemIdentifiers = [.pokiSitelenToki, .pokiSitelenContent]
         }
 
+        // The private presenter stacks system-modal bars. Dismiss the current
+        // layer before replacing it so repeated poki/toki navigation still
+        // leaves exactly one dismissible bar.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         touchBar = bar
         presentCurrentBar()
     }
@@ -72,6 +76,9 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func presentCurrentBar() {
         guard isStarted else { return }
 
+        // Re-presenting an already visible bar creates another modal layer.
+        // Normalize to one layer for both navigation and Control Strip restores.
+        NSTouchBar.dismissSystemModalTouchBar(touchBar)
         NSTouchBar.presentSystemModalTouchBar(
             touchBar,
             systemTrayItemIdentifier: .pokiSitelenTray
