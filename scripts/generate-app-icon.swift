@@ -62,26 +62,33 @@ func renderIcon(kind: IconKind, pixels: Int) throws -> Data {
 
     switch kind {
     case .touchBarpalooza:
-        let pill = NSRect(x: size * 0.095, y: size * 0.395, width: size * 0.81, height: size * 0.215)
-        let pillPath = roundedRect(pill, radius: size * 0.105)
+        // Match the selected Option 3 more closely: a slim monochrome Touch
+        // Bar capsule with four comfortably inset buttons.
+        let pill = NSRect(
+            x: size * 0.105,
+            y: size * 0.415,
+            width: size * 0.79,
+            height: size * 0.17
+        )
+        let pillPath = roundedRect(pill, radius: size * 0.085)
         color(0.97).setStroke()
-        pillPath.lineWidth = max(2, size * 0.034)
+        pillPath.lineWidth = max(2, size * 0.026)
         pillPath.stroke()
 
-        let buttonY = size * 0.435
-        let buttonH = size * 0.135
-        let buttonW = size * 0.168
-        let gap = size * 0.025
-        var x = size * 0.145
+        let buttonY = size * 0.447
+        let buttonH = size * 0.106
+        let buttonW = size * 0.145
+        let gap = size * 0.028
+        var x = size * 0.169
 
         for index in 0..<4 {
             let rect = NSRect(x: x, y: buttonY, width: buttonW, height: buttonH)
-            let path = roundedRect(rect, radius: size * 0.035)
+            let path = roundedRect(rect, radius: size * 0.028)
             let shade: CGFloat = index == 0 ? 0.96 : 0.83
             color(shade).setFill()
             path.fill()
-            color(0.72, alpha: 0.55).setStroke()
-            path.lineWidth = max(1, size * 0.006)
+            color(0.72, alpha: 0.45).setStroke()
+            path.lineWidth = max(1, size * 0.0045)
             path.stroke()
             x += buttonW + gap
         }
