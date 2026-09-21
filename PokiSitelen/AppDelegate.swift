@@ -148,7 +148,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         title.translatesAutoresizingMaskIntoConstraints = false
 
         let subtitle = NSTextField(
-            labelWithString: "Toki Pona study tools and clipboard history on the Touch Bar."
+            labelWithString: "toki pona study tools and clipboard history on the Touch Bar."
         )
         subtitle.font = .systemFont(ofSize: 13)
         subtitle.textColor = .secondaryLabelColor
@@ -157,7 +157,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
 
         let instructions = NSTextField(wrappingLabelWithString: """
         1. Tap poki to open the six-slot clipboard history.
-        2. Tap toki to return to the Toki Pona study view.
+        2. Tap toki to return to the toki pona study view.
         3. Tap × to dismiss the app temporarily. Tap the poki sitelen icon in the Control Strip or menu bar to restore it.
         """)
         instructions.font = .systemFont(ofSize: 13)
@@ -236,7 +236,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
                     forInfoDictionaryKey: "CFBundleShortVersionString"
                 ) as? String ?? "0.1",
                 .credits: NSAttributedString(
-                    string: "Toki Pona study view + six-slot clipboard history."
+                    string: "toki pona study view + six-slot clipboard history."
                 )
             ]
         )
