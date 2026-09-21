@@ -31,7 +31,9 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.title = "⌂"
+        item.button?.title = ""
+        item.button?.image = pokiSitelenAppIcon(size: NSSize(width: 18, height: 18))
+        item.button?.imageScaling = .scaleProportionallyDown
         item.button?.toolTip = "poki sitelen"
 
         let menu = NSMenu()
@@ -156,7 +158,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         let instructions = NSTextField(wrappingLabelWithString: """
         1. Tap poki to open the six-slot clipboard history.
         2. Tap toki to return to the Toki Pona study view.
-        3. Tap × to dismiss the app temporarily. Tap ⌂ in the Control Strip or menu bar to restore it.
+        3. Tap × to dismiss the app temporarily. Tap the poki sitelen icon in the Control Strip or menu bar to restore it.
         """)
         instructions.font = .systemFont(ofSize: 13)
         instructions.translatesAutoresizingMaskIntoConstraints = false
@@ -170,7 +172,7 @@ final class PokiSitelenAppDelegate: NSObject, NSApplicationDelegate, NSWindowDel
         note.translatesAutoresizingMaskIntoConstraints = false
 
         let closeHint = NSTextField(
-            labelWithString: "You can close this window. poki sitelen keeps running from the menu bar."
+            labelWithString: "You can close this window. poki sitelen keeps running from its icon in the menu bar."
         )
         closeHint.font = .systemFont(ofSize: 11)
         closeHint.textColor = .tertiaryLabelColor
