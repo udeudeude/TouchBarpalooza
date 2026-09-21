@@ -1,5 +1,12 @@
 import AppKit
 
+func pokiSitelenAppIcon(size: NSSize) -> NSImage {
+    let image = (NSApp.applicationIconImage.copy() as? NSImage) ?? NSApp.applicationIconImage
+    image.size = size
+    image.isTemplate = false
+    return image
+}
+
 private extension NSTouchBarItem.Identifier {
     static let pokiSitelenTray = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.tray")
     static let pokiSitelenForegroundClose = NSTouchBarItem.Identifier("com.udeudeude.PokiSitelen.foregroundClose")
@@ -29,7 +36,9 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .pokiSitelenTray)
-        let trayButton = NSButton(title: "⌂", target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(image: pokiSitelenAppIcon(size: NSSize(width: 22, height: 22)), target: self, action: #selector(presentCurrentBar))
+        trayButton.imagePosition = .imageOnly
+        trayButton.imageScaling = .scaleProportionallyDown
         trayButton.toolTip = "Show poki sitelen"
         trayItem.view = trayButton
         self.trayItem = trayItem
