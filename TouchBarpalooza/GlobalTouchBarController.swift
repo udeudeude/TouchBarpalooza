@@ -210,7 +210,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         case .touchBarpaloozaKITT:
             return buttonItem(identifier: identifier, title: "KITT", action: #selector(showKITT))
         case .touchBarpaloozaTokiPona:
-            return buttonItem(identifier: identifier, title: "Toki Pona", action: #selector(showTokiPona))
+            return buttonItem(identifier: identifier, title: "toki pona", action: #selector(showTokiPona))
         case .touchBarpaloozaPond:
             return buttonItem(identifier: identifier, title: "Pond", action: #selector(showPond))
         case .lemmingsPlay:
@@ -248,7 +248,7 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
             ("Games", #selector(showGames)),
             ("Savers", #selector(showSavers)),
             ("KITT", #selector(showKITT)),
-            ("Toki Pona", #selector(showTokiPona)),
+            ("toki pona", #selector(showTokiPona)),
             ("Pond", #selector(showPond))
         ]
 
