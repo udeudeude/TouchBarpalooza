@@ -28,9 +28,9 @@ TouchBarpalooza does not ask for privacy permissions merely because it launched.
 
 ## Companion app: poki sitelen
 
-The repository also includes **poki sitelen**, a smaller standalone Touch Bar app built from the Toki Pona and clipboard parts of TouchBarpalooza. The name combines *poki* (container) with *sitelen* (writing/image), a natural Toki Pona description of a clipboard.
+The repository also includes **poki sitelen**, a smaller standalone Touch Bar app built from the toki pona and clipboard parts of TouchBarpalooza. The name combines *poki* (container) with *sitelen* (writing/image), a natural toki pona description of a clipboard.
 
-Its normal view is the Toki Pona word study display. Meanwhile, a six-slot clipboard history keeps watching copied text in the background. Tap **poki** to open those six clipboard slots, then tap **toki** to return to the study display.
+Its normal view is the toki pona word study display. Meanwhile, a six-slot clipboard history keeps watching copied text in the background. Tap **poki** to open those six clipboard slots, then tap **toki** to return to the study display.
 
 Build and install it with:
 
@@ -50,7 +50,7 @@ The main launcher currently includes:
 - **Games**
 - **Savers**
 - **KITT**: red back-and-forth scanner
-- **Toki Pona** study tools
+- **toki pona** study tools
 - **Pond**: interactive koi and water ripples
 
 Home controls are kept compact to preserve Touch Bar space. The persistent system-modal bar uses macOS's native close box as a one-tap exit to the foreground application's normal Touch Bar, where the real system Escape key is available. The small Control Strip launcher remains available to reopen TouchBarpalooza. No Accessibility permission or synthetic keyboard event is required.
