@@ -14,7 +14,7 @@ The project currently does **not** use a paid Apple Developer account, so downlo
 
 For the friendliest current installation:
 
-1. Download the latest `.dmg` from **GitHub Releases**.
+1. Download the latest `.dmg` from [GitHub Releases](https://github.com/udeudeude/TouchBarpalooza/releases).
 2. Open it and drag the app into **Applications**.
 3. Try to open the app once.
 4. If macOS blocks it, use **Privacy & Security → Open Anyway**.
@@ -134,7 +134,7 @@ Current project settings:
 - Swift 5
 - universal Intel (`x86_64`) + Apple silicon (`arm64`) builds
 
-Those settings describe the intended build range, not a guarantee that every Touch Bar model and macOS release has been verified. The persistent host uses private macOS interfaces, and current physical testing is limited to the developer's present Touch Bar Mac. Reports from other Touch Bar models and macOS versions are especially useful.
+Those settings describe the intended build range, not a guarantee that every Touch Bar model and macOS release has been verified. The persistent host uses private macOS interfaces, and current physical testing is limited to the developer's present Touch Bar Mac. Reports from other Touch Bar models and macOS versions are especially useful; both apps include a **Report a Problem…** item in the ⌂ menu.
 
 ## Private API note
 
