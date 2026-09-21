@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 
 private extension NSTouchBarItem.Identifier {
     static let touchBarpaloozaTray = NSTouchBarItem.Identifier("com.udeudeude.TouchBarpalooza.global.tray")
@@ -93,6 +94,10 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
         ]
 
         rebuildAndPresent()
+    }
+
+    func showTouchBar() {
+        presentCurrentBar()
     }
 
     func stop() {
@@ -573,7 +578,16 @@ final class GlobalTouchBarController: NSObject, NSTouchBarDelegate {
     @objc private func showLife() { mode = .life; rebuildAndPresent() }
     @objc private func showPitfall() { mode = .pitfall; rebuildAndPresent() }
     @objc private func showET() { mode = .et; rebuildAndPresent() }
-    @objc private func showMario() { mode = .mario; rebuildAndPresent() }
+    @objc private func showMario() {
+        // Mario is the only feature that needs global keyboard events.
+        // Ask for Input Monitoring only when the user actually chooses it,
+        // instead of presenting a privacy prompt on first launch.
+        if !CGPreflightListenEventAccess() {
+            _ = CGRequestListenEventAccess()
+        }
+        mode = .mario
+        rebuildAndPresent()
+    }
     @objc private func showAdventure() { mode = .adventure; rebuildAndPresent() }
     @objc private func showDVD() { mode = .dvdSaver; rebuildAndPresent() }
     @objc private func showPipes() { mode = .pipesSaver; rebuildAndPresent() }
