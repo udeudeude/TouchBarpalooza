@@ -1,8 +1,48 @@
 import AppKit
 
 func pokiSitelenAppIcon(size: NSSize) -> NSImage {
-    let image = (NSApp.applicationIconImage.copy() as? NSImage) ?? NSApp.applicationIconImage
-    image.size = size
+    if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+       let loaded = NSImage(contentsOf: url),
+       let image = loaded.copy() as? NSImage {
+        image.size = size
+        image.isTemplate = false
+        return image
+    }
+
+    // Fallback: draw the same roof-and-dot mark used by the application icon.
+    let image = NSImage(size: size)
+    image.lockFocus()
+
+    let bounds = NSRect(origin: .zero, size: size)
+    let background = NSBezierPath(
+        roundedRect: bounds.insetBy(dx: size.width * 0.03, dy: size.height * 0.03),
+        xRadius: size.width * 0.19,
+        yRadius: size.height * 0.19
+    )
+    NSColor(calibratedWhite: 0.08, alpha: 1).setFill()
+    background.fill()
+
+    let roof = NSBezierPath()
+    roof.move(to: NSPoint(x: size.width * 0.18, y: size.height * 0.36))
+    roof.line(to: NSPoint(x: size.width * 0.50, y: size.height * 0.69))
+    roof.line(to: NSPoint(x: size.width * 0.82, y: size.height * 0.36))
+    roof.lineCapStyle = .round
+    roof.lineJoinStyle = .round
+    roof.lineWidth = max(1.5, size.width * 0.065)
+    NSColor.white.setStroke()
+    roof.stroke()
+
+    NSColor.white.setFill()
+    NSBezierPath(
+        ovalIn: NSRect(
+            x: size.width * 0.415,
+            y: size.height * 0.21,
+            width: size.width * 0.17,
+            height: size.height * 0.17
+        )
+    ).fill()
+
+    image.unlockFocus()
     image.isTemplate = false
     return image
 }
@@ -36,7 +76,12 @@ final class PokiSitelenTouchBarController: NSObject, NSTouchBarDelegate {
         DFRSystemModalShowsCloseBoxWhenFrontMost(true)
 
         let trayItem = NSCustomTouchBarItem(identifier: .pokiSitelenTray)
-        let trayButton = NSButton(image: pokiSitelenAppIcon(size: NSSize(width: 22, height: 22)), target: self, action: #selector(presentCurrentBar))
+        let trayButton = NSButton(
+            image: pokiSitelenAppIcon(size: NSSize(width: 22, height: 22)),
+            target: self,
+            action: #selector(presentCurrentBar)
+        )
+        trayButton.title = ""
         trayButton.imagePosition = .imageOnly
         trayButton.imageScaling = .scaleProportionallyDown
         trayButton.toolTip = "Show poki sitelen"
